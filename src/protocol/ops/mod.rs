@@ -15,7 +15,7 @@ pub mod subscription;
 
 use crate::config::WithDefaults;
 use crate::protocol::filter::ResolvedFilter;
-use crate::protocol::ns::{NC_NS, WITH_DEFAULTS_NS, WITH_INACTIVE_NS};
+use crate::protocol::ns::{NC_NS, NCS_TRACE_ID_NS, WITH_DEFAULTS_NS, WITH_INACTIVE_NS};
 use crate::protocol::xmlw::XmlWriter;
 
 /// Parameters shared by `get` and `get-config`.
@@ -27,33 +27,72 @@ pub struct ReadParams {
 }
 
 impl ReadParams {
-    /// The deprecated tail-f `with-defaults="true|false"` goes on `<rpc>`.
-    fn rpc_attrs(&self) -> Vec<(&'static str, &'static str)> {
-        match self.with_defaults {
-            Some(WithDefaults::LegacyTrue) => vec![("with-defaults", "true")],
-            Some(WithDefaults::LegacyFalse) => vec![("with-defaults", "false")],
-            _ => Vec::new(),
-        }
-    }
-
     /// Filter, `with-defaults` and `with-inactive`, in the order the Python script emits them.
     fn write(&self, w: &mut XmlWriter) {
         if let Some(filter) = &self.filter {
             filter.write(w);
         }
-        let mode = match self.with_defaults {
-            Some(WithDefaults::Explicit) => Some("explicit"),
-            Some(WithDefaults::Trim) => Some("trim"),
-            Some(WithDefaults::ReportAll) => Some("report-all"),
-            Some(WithDefaults::ReportAllTagged) => Some("report-all-tagged"),
-            Some(WithDefaults::LegacyTrue | WithDefaults::LegacyFalse) | None => None,
-        };
-        if let Some(mode) = mode {
+        if let Some(mode) = with_defaults_mode(self.with_defaults) {
             w.element("with-defaults", &[("xmlns", WITH_DEFAULTS_NS)], mode);
         }
-        if self.with_inactive {
-            w.empty("with-inactive", &[("xmlns", WITH_INACTIVE_NS)]);
+        write_with_inactive(w, self.with_inactive);
+    }
+}
+
+/// The value of the standard `with-defaults` parameter, if `with_defaults` is one of the four modes.
+fn with_defaults_mode(with_defaults: Option<WithDefaults>) -> Option<&'static str> {
+    match with_defaults? {
+        WithDefaults::Explicit => Some("explicit"),
+        WithDefaults::Trim => Some("trim"),
+        WithDefaults::ReportAll => Some("report-all"),
+        WithDefaults::ReportAllTagged => Some("report-all-tagged"),
+        WithDefaults::LegacyTrue | WithDefaults::LegacyFalse => None,
+    }
+}
+
+/// The deprecated tail-f `with-defaults="true|false"` goes on `<rpc>`.
+fn legacy_with_defaults_attr(
+    with_defaults: Option<WithDefaults>,
+) -> Vec<(&'static str, &'static str)> {
+    match with_defaults {
+        Some(WithDefaults::LegacyTrue) => vec![("with-defaults", "true")],
+        Some(WithDefaults::LegacyFalse) => vec![("with-defaults", "false")],
+        _ => Vec::new(),
+    }
+}
+
+fn write_with_inactive(w: &mut XmlWriter, with_inactive: bool) {
+    if with_inactive {
+        w.empty("with-inactive", &[("xmlns", WITH_INACTIVE_NS)]);
+    }
+}
+
+fn write_trace_id(w: &mut XmlWriter, trace_id: Option<&str>) {
+    if let Some(id) = trace_id {
+        w.element("trace-id", &[("xmlns", NCS_TRACE_ID_NS)], id);
+    }
+}
+
+/// An operation whose payload is streamed from a file between `prefix` and `suffix`;
+/// both are parts of the content of `<rpc>`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Streamed {
+    pub prefix: String,
+    pub suffix: String,
+}
+
+impl Streamed {
+    /// The payload is the whole operation (`--rpc`).
+    pub fn bare() -> Self {
+        Streamed {
+            prefix: String::new(),
+            suffix: String::new(),
         }
+    }
+
+    fn from_open(w: XmlWriter) -> Self {
+        let (prefix, suffix) = w.finish_open();
+        Streamed { prefix, suffix }
     }
 }
 

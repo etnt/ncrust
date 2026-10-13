@@ -74,6 +74,18 @@ impl XmlWriter {
         self.out
     }
 
+    /// The text written so far, and the end tags that would close the elements still open.
+    /// For operations whose payload is streamed between the two parts.
+    pub fn finish_open(mut self) -> (String, String) {
+        let mut closing = String::new();
+        while let Some(name) = self.open.pop() {
+            closing.push_str("</");
+            closing.push_str(&name);
+            closing.push('>');
+        }
+        (self.out, closing)
+    }
+
     fn open_tag(&mut self, name: &str, attrs: &[(&str, &str)], raw_attrs: &str) {
         self.out.push('<');
         self.out.push_str(name);

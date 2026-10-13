@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1" x="y">
+    <get-data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-nmda" xmlns:ds="urn:ietf:params:xml:ns:yang:ietf-datastores" xmlns:or="urn:ietf:params:xml:ns:yang:ietf-origin">
+                 <datastore>ds:operational</datastore>
+                 <xpath-filter> /a</xpath-filter><config-filter>false</config-filter><max-depth>2</max-depth><with-defaults>report-all</with-defaults><with-inactive xmlns='http://tail-f.com/ns/netconf/inactive/1.0'/><origin-filter xmlns:or="urn:ietf:params:xml:ns:yang:ietf-origin">or:dynamic</origin-filter><with-origin/>
+                 </get-data>
+</rpc>

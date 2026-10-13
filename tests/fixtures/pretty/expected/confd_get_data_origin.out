@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1">
+  <rpc-error>
+    <error-type>protocol</error-type>
+    <error-tag>invalid-value</error-tag>
+    <error-severity>error</error-severity>
+    <error-path xmlns:ncds="urn:ietf:params:xml:ns:yang:ietf-netconf-nmda">
+    /rpc/ncds:get-data
+  </error-path>
+    <error-info>
+      <bad-element>with-origin</bad-element>
+    </error-info>
+  </rpc-error>
+</rpc-reply>

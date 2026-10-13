@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<p:a xmlns:p="urn:p" xmlns="urn:d" p:k="1" k2="2">
+  <p:b/>
+  <c xmlns="urn:e"/>
+</p:a>

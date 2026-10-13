@@ -1,6 +1,6 @@
-//! The reply loop: polling, end-of-file handling, printing per output style.
+//! The reply loop: polling the server, end-of-file handling, passing data on for printing.
 //!
-//! May depend on: config, error, output, session.
+//! May depend on: config, error, framing, output, session.
 
 use std::io::Write;
 use std::time::Duration;
@@ -25,15 +25,22 @@ pub fn flush_trace<T: Transport>(
     session: &mut Session<T>,
     out: &mut dyn Write,
 ) -> Result<(), Error> {
-    out.write_all(&session.take_trace())?;
+    let trace = session.take_trace();
+    if !trace.is_empty() {
+        out.write_all(&trace)?;
+        // Raw output is followed live, e.g. a stream of notifications.
+        out.flush()?;
+    }
     Ok(())
 }
 
-/// Reads one reply, writing its text to `out` if `print` is set.
+/// Reads one reply. With `stream`, data is written to `out` as it arrives; with `collect`,
+/// it is also kept for the caller.
 pub fn read_reply<T: Transport>(
     session: &mut Session<T>,
     out: &mut dyn Write,
-    print: bool,
+    stream: bool,
+    mut collect: Option<&mut Vec<u8>>,
 ) -> Result<ReplyEnd, Error> {
     let mut seen = 0usize;
     loop {
@@ -43,8 +50,11 @@ pub fn read_reply<T: Transport>(
             Recv::Timeout => continue,
             Recv::Data(data) => {
                 seen += 1;
-                if print {
+                if stream {
                     out.write_all(&data)?;
+                }
+                if let Some(buf) = collect.as_deref_mut() {
+                    buf.extend_from_slice(&data);
                 }
                 continue;
             }
@@ -52,8 +62,11 @@ pub fn read_reply<T: Transport>(
             Recv::Eof(pending) => (pending, FramingError::UnexpectedEof),
             Recv::Framing(error, pending) => (pending, error),
         };
-        if print {
+        if stream {
             out.write_all(&pending)?;
+        }
+        if let Some(buf) = collect.as_deref_mut() {
+            buf.extend_from_slice(&pending);
         }
         return if seen == 0 {
             Ok(ReplyEnd::ConnectionClosed)

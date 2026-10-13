@@ -43,7 +43,7 @@ fn get_config() -> Action {
 
 fn run(inv: &Invocation) -> (Result<(), ncrust::error::Error>, String) {
     let mut out = Vec::new();
-    let result = ncrust::runner::run(inv, &mut out);
+    let result = ncrust::runner::run(inv, &mut out, &mut Vec::new());
     (result, String::from_utf8(out).unwrap())
 }
 

@@ -4,7 +4,8 @@ mod common;
 
 use assert_cmd::cargo::cargo_bin_cmd;
 use common::assert_xml_eq;
-use common::mock_server::{MockServer, REPLY, goodbye, hello_steps, round_trip, script};
+use common::mock_server::{MockServer, REPLY, Step, goodbye, hello_steps, round_trip, script};
+use ncrust::output::pretty;
 use ncrust::protocol::ns::NC_NS;
 use predicates::str::contains;
 
@@ -125,4 +126,93 @@ fn ssh_is_the_default_protocol_but_not_available_yet() {
         .assert()
         .code(1)
         .stdout(contains("SSH is not implemented yet"));
+}
+
+fn formatted(xml: &str) -> String {
+    String::from_utf8(pretty::format(xml.as_bytes()).unwrap()).unwrap()
+}
+
+#[test]
+fn without_a_style_the_reply_is_pretty_printed() {
+    let server = MockServer::start(script(vec![hello_steps(), round_trip(REPLY), goodbye()]));
+    cargo_bin_cmd!("netconf-console")
+        .args(tcp_args(server.port))
+        .arg("--get-config")
+        .assert()
+        .success()
+        .stdout(formatted(REPLY));
+    server.finish();
+}
+
+#[test]
+fn interactive_mode_sends_operations_from_stdin_numbered_from_2() {
+    let server = MockServer::start(script(vec![
+        hello_steps(),
+        round_trip(REPLY),
+        vec![Step::Close],
+    ]));
+    cargo_bin_cmd!("netconf-console")
+        .args(tcp_args(server.port))
+        .arg("-i")
+        .write_stdin("<get/>\n\n")
+        .assert()
+        .success()
+        .stdout(contains(
+            "* Enter a NETCONF operation, end with an empty line",
+        ))
+        .stdout(contains(formatted(REPLY)));
+
+    let t = server.finish();
+    assert_xml_eq(
+        &format!("<rpc xmlns=\"{NC_NS}\" message-id=\"2\"><get/></rpc>"),
+        &t.received[1],
+    );
+}
+
+#[test]
+fn a_session_file_is_read_from_standard_input_with_a_dash() {
+    use ncrust::protocol::ns::BASE_1_0;
+    let session = format!(
+        "<hello xmlns=\"{NC_NS}\"><capabilities><capability>{BASE_1_0}</capability></capabilities></hello>]]>]]>\
+         <rpc xmlns=\"{NC_NS}\" message-id=\"1\"><get/></rpc>]]>]]>"
+    );
+    let server = MockServer::start(vec![
+        Step::Preamble,
+        Step::SendMsg(common::mock_server::server_hello(&[BASE_1_0])),
+        Step::Recv,
+        Step::Recv,
+        Step::SendMsg(REPLY.to_string()),
+        Step::Close,
+    ]);
+    cargo_bin_cmd!("netconf-console")
+        .args(tcp_args(server.port))
+        .arg("-")
+        .write_stdin(session)
+        .assert()
+        .success()
+        .stdout(formatted(REPLY));
+    server.finish();
+}
+
+#[test]
+fn the_external_xmllint_gives_the_same_output_as_the_built_in_formatter() {
+    if std::process::Command::new("xmllint")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        eprintln!("xmllint not installed, skipping");
+        return;
+    }
+    let reply = "<rpc-reply xmlns=\"urn:x\"><data><a>é</a><b>\n  <c/></b></data></rpc-reply>";
+    for external in [false, true] {
+        let server = MockServer::start(script(vec![hello_steps(), round_trip(reply), goodbye()]));
+        let mut cmd = cargo_bin_cmd!("netconf-console");
+        cmd.args(tcp_args(server.port)).arg("--get-config");
+        if external {
+            cmd.env("NETCONF_CONSOLE_XMLLINT", "1");
+        }
+        cmd.assert().success().stdout(formatted(reply));
+        server.finish();
+    }
 }

@@ -14,7 +14,7 @@ const RULES: &[(&str, &[&str])] = &[
     ("error", &[]),
     ("framing", &["error"]),
     ("input", &["config", "error"]),
-    ("output", &["config", "error"]),
+    ("output", &["config", "error", "protocol"]),
     ("protocol", &["config", "error"]),
     (
         "runner",

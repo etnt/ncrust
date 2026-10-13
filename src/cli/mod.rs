@@ -56,6 +56,9 @@ pub struct Cli {
     #[arg(long, default_value_t = 1, allow_negative_numbers = true)]
     pub iter: i64,
 
+    #[arg(short = 'i', long)]
+    pub interactive: bool,
+
     /// Display output in: raw, plain, pretty, all, last, or noaaa format
     #[arg(short = 's', long = "outputStyle", help_heading = STYLE)]
     pub output_style: Option<String>,
@@ -85,19 +88,121 @@ pub struct Cli {
     #[arg(long, default_value = "running", help_heading = COMMANDS)]
     pub db: String,
 
-    /// Takes a filename (or '-' for standard input) as argument.
+    /// Takes an optional --db argument, default is 'running', an optional --subtree-filter
+    /// argument, an optional -x argument for XPath filtering, an optional --config-filter
+    /// argument, an optional --max-depth argument, an optional --origin-filter argument or an
+    /// optional --negated-origin-filter argument.
+    #[arg(long = "get-data", num_args = 0..=1, value_name = "DB", help_heading = COMMANDS)]
+    pub get_data: Option<Option<String>>,
+
+    /// Can be used to limit the depth of the --get-data command.
+    #[arg(long = "max-depth", help_heading = COMMANDS)]
+    pub max_depth: Option<String>,
+
+    /// Can be set to 'true' or 'false'. If not set, both operational and config data are returned
+    /// from --get-data. If set to true, only config data is returned. If set to false, only
+    /// operational data is returned.
+    #[arg(long = "config-filter", help_heading = COMMANDS)]
+    pub config_filter: Option<String>,
+
+    /// If present, the 'origin' annotation for the nodes will be returned.
+    #[arg(long = "with-origin", help_heading = COMMANDS)]
+    pub with_origin: bool,
+
+    /// Can be used with --get-data. If one or more origin filters are set, only nodes derived
+    /// from the given origin are returned.
+    #[arg(long = "origin-filter", help_heading = COMMANDS)]
+    pub origin_filter: Vec<String>,
+
+    /// Can be used with --get-data. If one or more origin filters are set, only nodes that are
+    /// not derived from the given origin are returned.
+    #[arg(long = "negated-origin-filter", help_heading = COMMANDS)]
+    pub negated_origin_filter: Vec<String>,
+
+    /// Takes a session-id as argument.
+    #[arg(long = "kill-session", value_name = "SESSION_ID", help_heading = COMMANDS)]
+    pub kill_session: Option<String>,
+
+    #[arg(long = "discard-changes", help_heading = COMMANDS)]
+    pub discard_changes: bool,
+
+    #[arg(long, help_heading = COMMANDS)]
+    pub commit: bool,
+
+    /// Takes an optional --db argument, default is 'running'.
+    #[arg(long, help_heading = COMMANDS)]
+    pub validate: bool,
+
+    #[arg(long = "copy-running-to-startup", help_heading = COMMANDS)]
+    pub copy_running_to_startup: bool,
+
+    /// Takes a filename (or '-' for standard input) as argument. The contents of the file is the
+    /// data for a single NETCONF copy-config operation (put into the <config> XML element).
+    /// Takes an optional --db argument, default is 'running'.
+    #[arg(long = "copy-config", value_name = "FILE", help_heading = COMMANDS)]
+    pub copy_config: Option<String>,
+
+    /// Must be a trace-id in uuid_v4 format. Use with --copy-config, --edit-config or --edit-data.
+    #[arg(long = "trace-id", help_heading = COMMANDS)]
+    pub trace_id: Option<String>,
+
+    /// Takes a filename (or '-' for standard input) as argument. The contents of the file is the
+    /// data for a single NETCONF edit-config operation (put into the <config> XML element).
+    /// Takes an optional --db argument, default is 'running'.
+    #[arg(long = "edit-config", value_name = "FILE", help_heading = COMMANDS)]
+    pub edit_config: Option<String>,
+
+    /// Takes a filename (or '-' for standard input) as argument. The contents of the file is the
+    /// data for a single NETCONF edit-data operation (put into the <config> XML element).
+    /// Takes an optional --db argument, default is 'running'.
+    #[arg(long = "edit-data", value_name = "FILE", help_heading = COMMANDS)]
+    pub edit_data: Option<String>,
+
+    /// Takes an identifier (typically YANG module name) as parameter
+    #[arg(long = "get-schema", value_name = "IDENTIFIER", help_heading = COMMANDS)]
+    pub get_schema: Option<String>,
+
+    /// Takes a stream name as parameter, and an optional -x for XPath filtering or
+    /// --subtree-filter for subtree filtering.
+    #[arg(long = "create-subscription", value_name = "STREAM", help_heading = COMMANDS)]
+    pub create_subscription: Option<String>,
+
+    /// Takes a stream name as parameter, and an optional -x for XPath filtering or
+    /// --subtree-filter for subtree filtering.
+    #[arg(long = "establish-subscription", value_name = "STREAM", help_heading = COMMANDS)]
+    pub establish_subscription: Option<String>,
+
+    /// Takes a subscription id as parameter
+    #[arg(long = "kill-subscription", value_name = "ID", help_heading = COMMANDS)]
+    pub kill_subscription: Option<u32>,
+
+    /// Takes a timestamp in YYYY-MM-DDTHH:MM:SS format, for example 2017-01-10T12:05:21. Assumes
+    /// UTC. Used with --create-subscription or --establish-subscription.
+    #[arg(long = "start-time", visible_alias = "replay-start-time", help_heading = COMMANDS)]
+    pub start_time: Option<String>,
+
+    /// Takes a timestamp in YYYY-MM-DDTHH:MM:SS format. Assumes UTC. Used with
+    /// --create-subscription or --establish-subscription. The session will be closed after the
+    /// stop time has been reached.
+    #[arg(long = "stop-time", help_heading = COMMANDS)]
+    pub stop_time: Option<String>,
+
+    /// Takes a filename (or '-' for standard input) as argument. Can be used with --get*
+    /// operations, --create-subscription and --establish-subscription.
     #[arg(long = "subtree-filter", value_name = "FILE", help_heading = COMMANDS)]
     pub subtree_filter: Option<String>,
 
-    /// One of 'explicit', 'trim', 'report-all' or 'report-all-tagged'.
+    /// One of 'explicit', 'trim', 'report-all' or 'report-all-tagged'. Use with --get,
+    /// --get-config or --get-data.
     #[arg(long = "with-defaults", help_heading = COMMANDS)]
     pub with_defaults: Option<String>,
 
-    /// Send with-inactive parameter.
+    /// Send with-inactive parameter. Use with --get, --get-config or --get-data.
     #[arg(long = "with-inactive", help_heading = COMMANDS)]
     pub with_inactive: bool,
 
-    /// XPath filter to be used with --get and --get-config
+    /// XPath filter to be used with --get, --get-config, --get-data, --create-subscription and
+    /// --establish-subscription
     #[arg(short = 'x', long, num_args = 1.., value_name = "XPATH", help_heading = COMMANDS)]
     pub xpath: Vec<String>,
 
@@ -109,6 +214,10 @@ pub struct Cli {
     /// XML attributes to send in the rpc element
     #[arg(long = "rpc-attribute", default_value = "", hide_default_value = true, help_heading = COMMANDS)]
     pub rpc_attribute: String,
+
+    /// A file containing a NETCONF XML command session ('-' means standard input)
+    #[arg(value_name = "FILE")]
+    pub filename: Option<String>,
 }
 
 #[derive(Debug)]
@@ -351,6 +460,182 @@ mod tests {
         );
         assert_eq!(err.exit_code(), 2);
         assert!(matches!(error(&["--no-such-option"]), Error::Usage(_)));
+    }
+
+    #[test]
+    fn get_data_options() {
+        let Action::GetData(data) = invocation(&[
+            "--get-data",
+            "operational",
+            "-x",
+            "/a",
+            "--config-filter",
+            "false",
+            "--max-depth",
+            "3",
+            "--with-origin",
+            "--origin-filter",
+            "intended",
+            "--origin-filter",
+            "system",
+            "--negated-origin-filter",
+            "learned",
+            "--with-defaults",
+            "trim",
+            "--with-inactive",
+        ])
+        .action
+        else {
+            panic!()
+        };
+        assert_eq!(data.db, Db("operational".into()));
+        assert_eq!(data.xpath.as_deref(), Some("/a"));
+        assert_eq!(data.subtree, None);
+        assert_eq!(
+            (data.config_filter, data.max_depth.as_deref()),
+            (Some(false), Some("3"))
+        );
+        assert_eq!(
+            data.origin_filter,
+            [
+                crate::config::Origin::Intended,
+                crate::config::Origin::System
+            ]
+        );
+        assert_eq!(data.negated_origin_filter, [crate::config::Origin::Learned]);
+        assert_eq!(data.with_defaults, Some(WithDefaults::Trim));
+        assert!(data.with_origin && data.with_inactive);
+    }
+
+    #[test]
+    fn get_data_accepts_both_filters_and_takes_its_database_like_get_config() {
+        let Action::GetData(data) =
+            invocation(&["--get-data", "--subtree-filter", "-", "-x", "/a"]).action
+        else {
+            panic!()
+        };
+        assert_eq!(data.xpath.as_deref(), Some("/a"));
+        assert_eq!(data.subtree, Some(InputSource::Stdin));
+        assert_eq!(data.db, Db::default());
+        let Action::GetData(data) = invocation(&["--get-data", "--db", "startup"]).action else {
+            panic!()
+        };
+        assert_eq!(data.db, Db("startup".into()));
+    }
+
+    #[test]
+    fn bad_get_data_values_are_reported_like_python_does() {
+        assert_eq!(
+            error(&["--get-data", "--config-filter", "maybe"]).to_string(),
+            "Bad --config-filter value: maybe"
+        );
+        let origin = error(&["--get", "--origin-filter", "mine"]);
+        assert_eq!(
+            origin.to_string(),
+            "Origin must be one of 'default' | 'dynamic' | 'intended' | 'learned' | 'system' | 'unknown'.\nUse --rpc to use your own origin identity."
+        );
+        assert!(matches!(origin, Error::Stdout(_)));
+    }
+
+    #[test]
+    fn payload_commands_take_their_database_and_trace_id() {
+        for flag in ["--edit-config", "--edit-data", "--copy-config"] {
+            let inv = invocation(&[flag, "f.xml", "--db", "candidate", "--trace-id", "t"]);
+            let payload = match inv.action {
+                Action::EditConfig(p) if flag == "--edit-config" => p,
+                Action::EditData(p) if flag == "--edit-data" => p,
+                Action::CopyConfig(p) if flag == "--copy-config" => p,
+                other => panic!("{flag}: {other:?}"),
+            };
+            assert_eq!(payload.db, Db("candidate".into()));
+            assert_eq!(payload.input, InputSource::File("f.xml".into()));
+            assert_eq!(payload.trace_id.as_deref(), Some("t"));
+        }
+    }
+
+    #[test]
+    fn simple_commands() {
+        assert_eq!(
+            invocation(&["--kill-session", "7"]).action,
+            Action::KillSession("7".into())
+        );
+        assert_eq!(
+            invocation(&["--discard-changes"]).action,
+            Action::DiscardChanges
+        );
+        assert_eq!(invocation(&["--commit"]).action, Action::Commit);
+        assert_eq!(
+            invocation(&["--copy-running-to-startup"]).action,
+            Action::CopyRunningToStartup
+        );
+        assert_eq!(
+            invocation(&["--validate", "--db", "candidate"]).action,
+            Action::Validate(Db("candidate".into()))
+        );
+        assert_eq!(
+            invocation(&["--get-schema", "ietf-interfaces"]).action,
+            Action::GetSchema("ietf-interfaces".into())
+        );
+        assert_eq!(
+            invocation(&["--kill-subscription", "9"]).action,
+            Action::KillSubscription(9)
+        );
+        assert_eq!(invocation(&["-i"]).action, Action::Interactive);
+    }
+
+    #[test]
+    fn subscriptions_take_filters_and_times() {
+        let Action::CreateSubscription(s) = invocation(&[
+            "--create-subscription",
+            "NETCONF",
+            "-x",
+            "/a",
+            "--start-time",
+            "2017-01-10T12:05:21",
+            "--stop-time",
+            "2017-01-11T00:00:00",
+        ])
+        .action
+        else {
+            panic!()
+        };
+        assert_eq!(s.stream, "NETCONF");
+        assert_eq!(s.filter, Some(Filter::XPath("/a".into())));
+        assert_eq!(s.start_time.unwrap().as_str(), "2017-01-10T12:05:21");
+        assert_eq!(s.stop_time.unwrap().epoch_secs(), 1_484_092_800);
+
+        // Both spellings set the same value, as in Python.
+        let Action::EstablishSubscription(s) = invocation(&[
+            "--establish-subscription",
+            "S",
+            "--replay-start-time",
+            "2017-01-10T12:05:21",
+        ])
+        .action
+        else {
+            panic!()
+        };
+        assert_eq!(s.start_time.unwrap().as_str(), "2017-01-10T12:05:21");
+        assert_eq!(
+            error(&["--create-subscription", "S", "--stop-time", "tomorrow"]).to_string(),
+            "Bad --stop-time value: tomorrow"
+        );
+    }
+
+    #[test]
+    fn a_filename_selects_a_session_script_and_wins_over_options() {
+        assert_eq!(
+            invocation(&["session.xml"]).action,
+            Action::SessionFile(InputSource::File("session.xml".into()))
+        );
+        assert_eq!(
+            invocation(&["-"]).action,
+            Action::SessionFile(InputSource::Stdin)
+        );
+        assert!(matches!(
+            invocation(&["--get", "s.xml"]).action,
+            Action::SessionFile(_)
+        ));
     }
 
     #[test]

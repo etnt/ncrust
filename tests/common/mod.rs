@@ -56,6 +56,47 @@ pub fn assert_xml_eq(expected: &str, actual: &str) {
     assert_eq!(e, a, "XML differs\nexpected: {expected}\nactual: {actual}");
 }
 
+/// An invocation against the mock server's TCP port.
+pub fn tcp_invocation(
+    port: u16,
+    action: ncrust::config::Action,
+    style: Option<ncrust::config::OutputStyle>,
+    iterations: i64,
+) -> ncrust::config::Invocation {
+    use ncrust::config::{ConnectionSpec, Invocation, TransportKind};
+    Invocation {
+        connection: ConnectionSpec {
+            host: "127.0.0.1".into(),
+            port,
+            username: "admin".into(),
+            kind: TransportKind::Tcp {
+                groups: String::new(),
+                sup_gids: String::new(),
+            },
+            call_home: None,
+        },
+        action,
+        style,
+        iterations,
+        version: None,
+        rpc_attribute: String::new(),
+        debug: false,
+    }
+}
+
+/// Runs the invocation; returns the result, what went to stdout and what went to stderr.
+pub fn run_capture(
+    invocation: &ncrust::config::Invocation,
+) -> (Result<(), ncrust::error::Error>, String, String) {
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    let result = ncrust::runner::run(invocation, &mut out, &mut err);
+    (
+        result,
+        String::from_utf8(out).unwrap(),
+        String::from_utf8(err).unwrap(),
+    )
+}
+
 /// Temporary file holding `contents`; removed when dropped.
 pub fn temp_file_with(contents: &[u8]) -> NamedTempFile {
     let mut file = NamedTempFile::new().expect("create temp file");

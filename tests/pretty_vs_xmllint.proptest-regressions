@@ -1,0 +1,12 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc f7ae53d4bb574004f9301af5e82401fb292812b0c3d94f2a733bf77845989a07 # shrinks to xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><a>&#13;</a>"
+cc a767c8a24ddd7f863d7a275699b84f36c06991f79a41305b77e3dd787b0b39cf # shrinks to xml = "<a><a><a xmlns=\"&amp;\"><?pi data?>b&#xe9;&amp;</a></a></a><?pi x?>"
+cc 55d301e6ec8bfacfc7b62e4cfd667946f4725f09767b29f6a295339a445bdaf8 # shrinks to xml = "<a><a><a><![CDATA[x < y]]><![CDATA[x < y]]></a></a></a>"
+cc 998e98a5809a70c32d368662a90ca64bbc20ab6180647fe45df379bc0d74276c # shrinks to xml = "<a xmlns:p=\"\"></a>\n"
+cc 8674e0a4e51c8131782d3714561603f7744074749282657e2cf58633cd91b4a1 # shrinks to xml = "<a><a><a><![CDATA[x < y]]>é<![CDATA[x < y]]> </a></a></a>"
+cc 30ad7ff5ebf278060a8050650ee09b3b25a993467c007a1f71b433e36fc646cc # shrinks to xml = "<a><a> \r\n</a></a>"

@@ -2,7 +2,7 @@
 //!
 //! May depend on: config, error, protocol::{filter, ns, xmlw}.
 
-use super::{Operation, ReadParams};
+use super::{Operation, ReadParams, legacy_with_defaults_attr};
 use crate::config::Db;
 use crate::protocol::xmlw::XmlWriter;
 
@@ -13,7 +13,7 @@ pub struct GetConfig {
 
 impl Operation for GetConfig {
     fn rpc_attrs(&self) -> Vec<(&'static str, &'static str)> {
-        self.params.rpc_attrs()
+        legacy_with_defaults_attr(self.params.with_defaults)
     }
 
     fn write_body(&self, w: &mut XmlWriter) {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1">
+  <data xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-nmda">
+    <subscriptions xmlns="urn:ietf:params:xml:ns:yang:ietf-subscribed-notifications"/>
+    <progress xmlns="http://tail-f.com/ns/progress"/>
+  </data>
+</rpc-reply>

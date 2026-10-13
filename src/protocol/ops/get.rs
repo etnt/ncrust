@@ -2,14 +2,14 @@
 //!
 //! May depend on: config, error, protocol::{filter, ns, xmlw}.
 
-use super::{Operation, ReadParams};
+use super::{Operation, ReadParams, legacy_with_defaults_attr};
 use crate::protocol::xmlw::XmlWriter;
 
 pub struct Get(pub ReadParams);
 
 impl Operation for Get {
     fn rpc_attrs(&self) -> Vec<(&'static str, &'static str)> {
-        self.0.rpc_attrs()
+        legacy_with_defaults_attr(self.0.with_defaults)
     }
 
     fn write_body(&self, w: &mut XmlWriter) {
