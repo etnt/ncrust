@@ -25,6 +25,8 @@ pub enum Step {
     Framing(Framing),
     /// Close the connection.
     Close,
+    /// Wait until the client closes the connection, ignoring what it sends.
+    WaitForClose,
 }
 
 #[derive(Debug, Default)]
@@ -134,6 +136,14 @@ fn play(mut stream: TcpStream, steps: Vec<Step>) -> Result<Transcript, String> {
             Step::Close => {
                 let _ = stream.shutdown(std::net::Shutdown::Both);
             }
+            Step::WaitForClose => loop {
+                let mut sink = [0u8; 4096];
+                match stream.read(&mut sink) {
+                    Ok(0) => break,
+                    Ok(_) => {}
+                    Err(e) => return Err(format!("the client did not close the connection: {e}")),
+                }
+            },
         }
     }
     Ok(transcript)

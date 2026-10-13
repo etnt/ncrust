@@ -21,8 +21,9 @@ const COMMANDS: &str = "NETCONF Command Options";
 #[command(
     name = "netconf-console",
     override_usage = "netconf-console [-h | --help] [options] [cmdoptions | <filename> | -]",
+    about = "Where <filename> is a file containing a NETCONF XML command session.\nIf <filename> is not given, one of the Command Options must be given.\nFilename '-' means standard input.",
+    help_template = "{usage-heading} {usage}\n\n{about}\n\n{all-args}",
     disable_version_flag = true,
-    infer_long_args = true,
     next_line_help = false
 )]
 pub struct Cli {
@@ -73,7 +74,19 @@ pub struct Cli {
     pub interactive: bool,
 
     /// Display output in: raw, plain, pretty, all, last, or noaaa format
-    #[arg(short = 's', long = "outputStyle", help_heading = STYLE)]
+    #[arg(
+        short = 's',
+        long = "outputStyle",
+        help_heading = STYLE,
+        long_help = "Display output in: raw, plain, pretty, all, last, or noaaa format\n\
+            raw:    print bytes received on the wire, framing is removed\n\
+            plain:  skip the <hello> reply, print one reply as raw, skip the rest\n\
+            pretty: skip the <hello> reply, pretty-print one reply, skip the rest\n\
+            all:    skip the <hello> reply, pretty-print the rest of the replies\n\
+            last:   skip the <hello> reply, pretty-print the last of the replies\n\
+                    (used primarily with --iter)\n\
+            noaaa:  as pretty, but remove Tail-f AAA and IETF NACM from the output"
+    )]
     pub output_style: Option<String>,
 
     /// type of private key, rsa, dss or ed25519 (only a hint; the type is detected from the file)
@@ -276,12 +289,38 @@ pub enum Parsed {
 
 /// Parses `args` (without the program name).
 pub fn parse(args: &[String]) -> Result<Parsed, Error> {
-    let argv = std::iter::once("netconf-console".to_string()).chain(args.iter().cloned());
-    match Cli::try_parse_from(argv) {
-        Ok(cli) => Ok(Parsed::Run(Box::new(validate::validate(&cli)?))),
-        Err(e) if e.kind() == ErrorKind::DisplayHelp => Ok(Parsed::Help(e.render().to_string())),
-        Err(e) => Err(Error::Usage(e.render().to_string().trim_end().to_string())),
+    match parse_cli(args)? {
+        Raw::Help(text) => Ok(Parsed::Help(text)),
+        Raw::Cli(cli) => Ok(Parsed::Run(Box::new(validate::validate(&cli)?))),
     }
+}
+
+/// The arguments as typed, before any interpretation.
+#[derive(Debug)]
+pub enum Raw {
+    Help(String),
+    Cli(Box<Cli>),
+}
+
+/// Reads `args` the way Python's `optparse` does, and builds the `Cli` from them.
+pub fn parse_cli(args: &[String]) -> Result<Raw, Error> {
+    use clap::{CommandFactory, FromArgMatches};
+    let command = Cli::command();
+    let plain = match legacy::normalize(&command, args)? {
+        legacy::Normalized::Help => vec!["--help".to_string()],
+        legacy::Normalized::Args(plain) => plain,
+    };
+    let argv = std::iter::once("netconf-console".to_string()).chain(plain);
+    let matches = match command.try_get_matches_from(argv) {
+        Ok(matches) => matches,
+        Err(e) if e.kind() == ErrorKind::DisplayHelp => {
+            return Ok(Raw::Help(e.render().to_string()));
+        }
+        Err(e) => return Err(Error::Usage(e.render().to_string().trim_end().to_string())),
+    };
+    Cli::from_arg_matches(&matches)
+        .map(|cli| Raw::Cli(Box::new(cli)))
+        .map_err(|e| Error::Usage(e.render().to_string().trim_end().to_string()))
 }
 
 #[cfg(test)]

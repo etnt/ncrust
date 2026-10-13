@@ -3,6 +3,7 @@
 //! May depend on: config, error, framing, input, output, protocol, session, transport.
 
 pub mod interactive;
+pub mod interrupt;
 pub mod plan;
 pub mod replies;
 pub mod request;
@@ -21,6 +22,7 @@ use crate::transport::Transport;
 use crate::transport::connect::{connect as connect_tcp, listen};
 use crate::transport::ssh;
 use crate::transport::tcp::TcpTransport;
+use interrupt::Interrupt;
 use plan::{Plan, Source};
 use replies::{ReplyEnd, flush_trace, read_reply};
 
@@ -34,6 +36,10 @@ pub struct Io<'a> {
 /// Connects as described by `invocation` and carries out its action.
 pub fn run(invocation: &Invocation, out: &mut dyn Write, err: &mut dyn Write) -> Result<(), Error> {
     let plan = plan::plan(invocation);
+    if invocation.debug {
+        writeln!(out, "DEBUG: pid: {}", std::process::id())?;
+        out.flush()?;
+    }
     let transport = connect(invocation, out, err)?;
     let external_xmllint = std::env::var("NETCONF_CONSOLE_XMLLINT").is_ok_and(|v| v == "1");
     let printer = Printer::new(plan.style, external_xmllint);
@@ -201,6 +207,12 @@ fn reply_loop<T: Transport>(
     let mut interactive_ids = MessageIds::starting_at(2);
 
     let mut remaining = plan.replies;
+    let per_reply = plan.source == Source::Interactive;
+    let whole_run = if per_reply {
+        Interrupt::never()
+    } else {
+        Interrupt::arm()
+    };
     let mut seen = 0usize;
     let mut closed = false;
     let mut replay_complete = false;
@@ -231,8 +243,23 @@ fn reply_loop<T: Transport>(
 
         let mode = printer.mode(remaining, seen);
         let mut collected = (mode == Mode::Collect || plan.stop_time.is_some()).then(Vec::new);
-        let end = read_reply(session, io.out, mode == Mode::Stream, collected.as_mut())?;
+        // Waiting for the server can be interrupted; so can the whole run, except while the
+        // user is typing a request.
+        let waiting = per_reply.then(Interrupt::arm);
+        let interrupt = waiting.as_ref().unwrap_or(&whole_run);
+        let end = read_reply(
+            session,
+            io.out,
+            mode == Mode::Stream,
+            collected.as_mut(),
+            interrupt,
+        )?;
+        drop(waiting);
         match end {
+            ReplyEnd::Interrupted => {
+                // As in Python: the connection is just closed, no close-session.
+                closed = true;
+            }
             ReplyEnd::Complete => {
                 if let Some(reply) = &collected {
                     if mode == Mode::Collect {

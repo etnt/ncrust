@@ -17,27 +17,55 @@ fn bad_value(option: &str, value: &str) -> Error {
 }
 
 /// Options that Python validates for every command, whether the command uses them or not.
+#[derive(Default)]
 struct Checked {
     with_defaults: Option<WithDefaults>,
     origin_filter: Vec<Origin>,
     negated_origin_filter: Vec<Origin>,
 }
 
+/// Set (to anything) to turn `netconf-console` into `netconf-console-tcp`.
+const FORCE_TCP_VARIABLE: &str = "TAILF_NETCONF_FORCE_TCP";
+
+/// The port of the NETCONF-over-TCP IPC listener that `FORCE_TCP_VARIABLE` selects.
+const FORCED_TCP_PORT: u16 = 2023;
+
 pub fn validate(cli: &Cli) -> Result<Invocation, Error> {
-    let checked = Checked {
-        with_defaults: with_defaults(cli.with_defaults.as_deref())?,
-        origin_filter: origins(&cli.origin_filter)?,
-        negated_origin_filter: origins(&cli.negated_origin_filter)?,
+    validate_with(cli, std::env::var_os(FORCE_TCP_VARIABLE).is_some())
+}
+
+/// The errors come in the order in which the Python script finds them: a missing command, call
+/// home without ssh, then the option values it checks for every command.
+fn validate_with(cli: &Cli, force_tcp: bool) -> Result<Invocation, Error> {
+    let (checked, bad_option) = match check(cli) {
+        Ok(checked) => (checked, None),
+        Err(error) => (Checked::default(), Some(error)),
     };
     let action = select_action(cli, checked)?;
+    if cli.listen && cli.proto != "ssh" {
+        return Err(Error::Usage(
+            "error: can only listen for call home over ssh".into(),
+        ));
+    }
+    if let Some(error) = bad_option {
+        return Err(error);
+    }
     Ok(Invocation {
-        connection: connection(cli)?,
+        connection: connection(cli, force_tcp)?,
         action,
         style: style(cli.output_style.as_deref())?,
         iterations: cli.iter,
         version: version(cli.version.as_deref())?,
         rpc_attribute: cli.rpc_attribute.clone(),
         debug: cli.debug,
+    })
+}
+
+fn check(cli: &Cli) -> Result<Checked, Error> {
+    Ok(Checked {
+        with_defaults: with_defaults(cli.with_defaults.as_deref())?,
+        origin_filter: origins(&cli.origin_filter)?,
+        negated_origin_filter: origins(&cli.negated_origin_filter)?,
     })
 }
 
@@ -222,13 +250,16 @@ fn with_defaults(value: Option<&str>) -> Result<Option<WithDefaults>, Error> {
     })
 }
 
-fn connection(cli: &Cli) -> Result<ConnectionSpec, Error> {
-    if cli.listen && cli.proto != "ssh" {
+fn connection(cli: &Cli, force_tcp: bool) -> Result<ConnectionSpec, Error> {
+    let proto = if force_tcp { "tcp" } else { cli.proto.as_str() };
+    let port = if force_tcp { FORCED_TCP_PORT } else { cli.port };
+    // Python fails with an exception here; call home needs ssh.
+    if cli.listen && proto != "ssh" {
         return Err(Error::Usage(
             "error: can only listen for call home over ssh".into(),
         ));
     }
-    let kind = match cli.proto.as_str() {
+    let kind = match proto {
         "ssh" => TransportKind::Ssh {
             password: cli.password.clone(),
             private_key: non_empty(&cli.priv_key_file).map(|file| PrivateKeySpec {
@@ -245,7 +276,7 @@ fn connection(cli: &Cli) -> Result<ConnectionSpec, Error> {
     };
     Ok(ConnectionSpec {
         host: cli.host.clone(),
-        port: cli.port,
+        port,
         username: cli.user.clone(),
         kind,
         call_home: cli.listen.then(|| CallHome {
@@ -314,5 +345,68 @@ fn input_source(name: &str) -> InputSource {
         InputSource::Stdin
     } else {
         InputSource::File(name.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::{Raw, parse_cli};
+
+    fn cli(args: &[&str]) -> Cli {
+        let args: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+        match parse_cli(&args) {
+            Ok(Raw::Cli(cli)) => *cli,
+            other => panic!("{args:?}: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forcing_tcp_overrides_protocol_and_port() {
+        let args = cli(&[
+            "--hello", "--proto", "ssh", "--port", "1", "-u", "bob", "-g", "g",
+        ]);
+        let forced = validate_with(&args, true).unwrap().connection;
+        assert_eq!((forced.port, forced.username.as_str()), (2023, "bob"));
+        assert_eq!(
+            forced.kind,
+            TransportKind::Tcp {
+                groups: "g".into(),
+                sup_gids: String::new()
+            }
+        );
+        let plain = validate_with(&args, false).unwrap().connection;
+        assert_eq!(plain.port, 1);
+        assert!(matches!(plain.kind, TransportKind::Ssh { .. }));
+    }
+
+    #[test]
+    fn forcing_tcp_also_overrides_an_unknown_protocol() {
+        let args = cli(&["--hello", "--proto", "udp"]);
+        assert!(validate_with(&args, true).is_ok());
+        assert!(validate_with(&args, false).is_err());
+    }
+
+    #[test]
+    fn forcing_tcp_does_not_work_with_call_home() {
+        let args = cli(&["--hello", "--listen"]);
+        assert!(matches!(validate_with(&args, true), Err(Error::Usage(_))));
+    }
+
+    #[test]
+    fn bad_values_are_reported_after_a_missing_command_and_call_home() {
+        let args = cli(&["--with-defaults", "bad", "--proto", "tcp", "--listen"]);
+        let missing = validate_with(&args, false).unwrap_err().to_string();
+        assert!(missing.contains("required"), "{missing}");
+        let args = cli(&[
+            "--hello",
+            "--with-defaults",
+            "bad",
+            "--proto",
+            "tcp",
+            "--listen",
+        ]);
+        let listen = validate_with(&args, false).unwrap_err().to_string();
+        assert!(listen.contains("listen"), "{listen}");
     }
 }

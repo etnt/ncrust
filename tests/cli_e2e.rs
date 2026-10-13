@@ -111,6 +111,62 @@ fn connection_refused_is_reported_on_stdout_with_exit_code_1() {
 }
 
 #[test]
+fn debug_prints_the_process_id_first() {
+    let server = MockServer::start(script(vec![hello_steps(), round_trip(REPLY), goodbye()]));
+    let output = cargo_bin_cmd!("netconf-console")
+        .args(tcp_args(server.port))
+        .args(["--debug", "--get-config", "-s", "plain"])
+        .assert()
+        .success()
+        .stderr("")
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(output).unwrap();
+    let (line, rest) = text.split_once('\n').unwrap();
+    let pid = line.strip_prefix("DEBUG: pid: ").expect(line);
+    assert!(pid.parse::<u32>().is_ok(), "{line}");
+    assert_eq!(rest, REPLY);
+    server.finish();
+}
+
+#[test]
+fn a_protocol_error_goes_to_stderr_with_exit_code_1() {
+    let server = MockServer::start(script(vec![
+        hello_steps(),
+        vec![Step::Recv, Step::Send(b"\n#10\nabc".to_vec()), Step::Close],
+    ]));
+    cargo_bin_cmd!("netconf-console")
+        .args(tcp_args(server.port))
+        .args(["--get-config", "-s", "plain"])
+        .assert()
+        .code(1)
+        .stdout("abc")
+        .stderr("unexpected EOF in NETCONF transport\n");
+    server.finish();
+}
+
+#[test]
+fn a_bad_option_value_goes_to_stdout_with_exit_code_1() {
+    cargo_bin_cmd!("netconf-console")
+        .args(["--hello", "--with-defaults", "bogus"])
+        .assert()
+        .code(1)
+        .stdout("Bad --with-defaults value: bogus\n")
+        .stderr("");
+}
+
+#[test]
+fn an_option_error_goes_to_stderr_with_exit_code_2() {
+    cargo_bin_cmd!("netconf-console")
+        .args(["--hello", "--nope"])
+        .assert()
+        .code(2)
+        .stdout("")
+        .stderr("error: no such option: --nope\n");
+}
+
+#[test]
 fn help_goes_to_stdout_with_exit_code_0() {
     cargo_bin_cmd!("netconf-console")
         .arg("--help")

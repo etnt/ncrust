@@ -134,7 +134,7 @@ Goal: command lines that work with the Python script work unchanged.
 
 | ID | Task | Verify |
 |---|---|---|
-| P4.1 | Complete clap definition for all options with identical names, shorts, defaults, and option groups; help text ported. | Script `tests/cli_options.rs` extracts option names from `$NC_PY_REF --help` and asserts every one is accepted by the Rust binary. |
+| P4.1 | Complete clap definition for all options with identical names, shorts, defaults, and option groups; help text ported. | `tests/cli_golden.rs` (`every_python_option_is_known_with_the_same_kind`, `help_lists_every_option_and_group`) compares every option of the Python parser (names, short names, kind; data from `tools/gen_cli_golden.py`) with ncrust's; the only extra options are the documented SSH ones. |
 | P4.2 | Legacy layer: optional value for `--get-config`/`--get-data`; greedy `-x/--xpath`; abbreviated long options; `--opt=value`; `-` as filename; `-v/--version` meaning NETCONF version. | Table test (≥ 40 argument vectors) comparing the parsed `Invocation` against expectations derived from Python's parsed `o`. |
 | P4.3 | `validate.rs`: all Python validation (`--with-defaults` values, origin values, listen only with ssh, "a filename or a command option is required", conflicts). Error messages/streams identical. | Table test of invalid vectors: stdout/stderr text and exit code equal Python. |
 | P4.4 | `TAILF_NETCONF_FORCE_TCP` handling (forces tcp + port 2023, as in Python). | Test with env var set. |

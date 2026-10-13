@@ -5,6 +5,7 @@
 use std::io::Write;
 use std::time::Duration;
 
+use super::interrupt::Interrupt;
 use crate::error::Error;
 use crate::framing::FramingError;
 use crate::session::{Recv, Session};
@@ -18,6 +19,8 @@ pub enum ReplyEnd {
     Complete,
     /// The server closed the connection (or sent invalid framing) before any reply data.
     ConnectionClosed,
+    /// Ctrl-C while waiting.
+    Interrupted,
 }
 
 /// Writes the wire bytes recorded by the session trace, if tracing is on.
@@ -41,9 +44,13 @@ pub fn read_reply<T: Transport>(
     out: &mut dyn Write,
     stream: bool,
     mut collect: Option<&mut Vec<u8>>,
+    interrupt: &Interrupt,
 ) -> Result<ReplyEnd, Error> {
     let mut seen = 0usize;
     loop {
+        if interrupt.triggered() {
+            return Ok(ReplyEnd::Interrupted);
+        }
         let received = session.recv(Some(POLL_INTERVAL));
         flush_trace(session, out)?;
         let (pending, error) = match received? {
