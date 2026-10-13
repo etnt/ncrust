@@ -10,7 +10,7 @@ pub mod subscription;
 
 use std::io::{self, BufRead, Write};
 
-use crate::config::{Action, ConnectionSpec, InputSource, Invocation, OutputStyle, TransportKind};
+use crate::config::{Action, InputSource, Invocation, OutputStyle, TransportKind};
 use crate::error::Error;
 use crate::input;
 use crate::output::{Mode, Printer, schema};
@@ -18,6 +18,8 @@ use crate::protocol::message_id::MessageIds;
 use crate::protocol::ops::{Streamed, raw_rpc, rpc};
 use crate::session::Session;
 use crate::transport::Transport;
+use crate::transport::connect::{connect as connect_tcp, listen};
+use crate::transport::ssh;
 use crate::transport::tcp::TcpTransport;
 use plan::{Plan, Source};
 use replies::{ReplyEnd, flush_trace, read_reply};
@@ -32,7 +34,7 @@ pub struct Io<'a> {
 /// Connects as described by `invocation` and carries out its action.
 pub fn run(invocation: &Invocation, out: &mut dyn Write, err: &mut dyn Write) -> Result<(), Error> {
     let plan = plan::plan(invocation);
-    let transport = connect(&invocation.connection)?;
+    let transport = connect(invocation, out, err)?;
     let external_xmllint = std::env::var("NETCONF_CONSOLE_XMLLINT").is_ok_and(|v| v == "1");
     let printer = Printer::new(plan.style, external_xmllint);
 
@@ -60,7 +62,12 @@ pub fn run(invocation: &Invocation, out: &mut dyn Write, err: &mut dyn Write) ->
     )
 }
 
-fn connect(spec: &ConnectionSpec) -> Result<Box<dyn Transport>, Error> {
+fn connect(
+    invocation: &Invocation,
+    out: &mut dyn Write,
+    err: &mut dyn Write,
+) -> Result<Box<dyn Transport>, Error> {
+    let spec = &invocation.connection;
     match &spec.kind {
         TransportKind::Tcp { groups, sup_gids } => Ok(Box::new(TcpTransport::connect(
             &spec.host,
@@ -69,9 +76,22 @@ fn connect(spec: &ConnectionSpec) -> Result<Box<dyn Transport>, Error> {
             groups,
             sup_gids,
         )?)),
-        TransportKind::Ssh { .. } => Err(Error::Stdout(
-            "SSH is not implemented yet; use --proto tcp".into(),
-        )),
+        TransportKind::Ssh { .. } => {
+            // Settings are checked first, so a mistake never costs a connection.
+            let prepared = ssh::Prepared::new(spec)?;
+            let stream = match &spec.call_home {
+                Some(call_home) => listen(&call_home.address, call_home.port, out)?,
+                None => connect_tcp(&spec.host, spec.port)?,
+            };
+            let connection = prepared.connect(stream)?;
+            for warning in &connection.warnings {
+                writeln!(err, "{warning}")?;
+            }
+            if let (true, Some(negotiated)) = (invocation.debug, &connection.negotiated) {
+                writeln!(err, "SSH algorithms: {negotiated}")?;
+            }
+            Ok(connection.transport)
+        }
     }
 }
 

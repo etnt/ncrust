@@ -2,6 +2,8 @@
 #![allow(dead_code)]
 
 pub mod mock_server;
+#[cfg(feature = "russh")]
+pub mod ssh_server;
 
 use std::io::Write;
 

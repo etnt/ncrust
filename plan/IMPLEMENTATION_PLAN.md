@@ -120,8 +120,8 @@ Can start once P1 is complete; P3 tasks do not touch `protocol/` or `runner/` ex
 | P3.7 | Call-home: `--listen`, `--listen-address`, `--listen-port` (accept one connection, print `** listening on`/`** call home from` lines exactly as Python), then run SSH client over the accepted socket. | Test connects a fixture server to the listener and completes hello; stdout lines match Python. |
 | P3.8 | Write-batching behaviour: avoid tiny SSH packets for streamed file payloads (16 KiB buffering as in `NetconfSSH._send`). | Test counts channel writes for a 1 MiB payload: ≤ ⌈size/16 KiB⌉ + small constant. |
 | P3.9 | Wire SSH into CLI/`runner` (`--proto ssh` default, `--user/--password/--host/--port`). | `assert_cmd` end-to-end test over SSH fixture matches the TCP result for the same requests. |
-| P3.10 | Document PQC extension points in `plan/` (where a new KEX/host-key/signature is added: `algorithms.rs`, `keys.rs`, backend). Verified by P7. | Reviewed doc; P7 tasks refer to it. |
-| P3.11 | (Conditional on P0.1) `subprocess_backend` using system `ssh -s netconf`, password via `SSH_ASKPASS`. | If enabled: same E2E test passes with the backend selected via feature flag; call-home reports "unsupported". |
+| P3.10 | Document PQC extension points in `plan/` (where a new KEX/host-key/signature is added: `algorithms.rs`, `keys.rs`, backend). Verified by P7. | Reviewed doc ([pqc-extension-points.md](pqc-extension-points.md)); P7 tasks refer to it. |
+| P3.11 | (Conditional on P0.1) `subprocess_backend` using system `ssh -s netconf`, password via `SSH_ASKPASS`. | **Skipped**, see D9 in DECISIONS.md. |
 
 Exit criteria: SSH E2E tests green on Linux and macOS CI; no `match` on key/algorithm types outside `transport/ssh/`
 (architecture test extended).

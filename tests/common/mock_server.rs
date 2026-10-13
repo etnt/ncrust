@@ -195,6 +195,14 @@ pub fn hello_steps() -> Vec<Step> {
     ]
 }
 
+/// Like `hello_steps`, for a transport that sends no preamble (SSH).
+pub fn ssh_hello_steps() -> Vec<Step> {
+    hello_steps()
+        .into_iter()
+        .filter(|step| !matches!(step, Step::Preamble))
+        .collect()
+}
+
 /// One request/reply round trip.
 pub fn round_trip(reply: &str) -> Vec<Step> {
     vec![Step::Recv, Step::SendMsg(reply.to_string())]

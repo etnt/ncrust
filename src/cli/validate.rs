@@ -5,8 +5,10 @@
 
 use super::Cli;
 use crate::config::{
-    Action, ConnectionSpec, Db, Filter, GetData, InputSource, Invocation, NetconfVersion, Origin,
-    OutputStyle, Payload, ReadOptions, Subscription, TransportKind, UtcTimestamp, WithDefaults,
+    Action, AlgorithmSpecs, CallHome, ConnectionSpec, Db, Filter, GetData, HostKeyCheck,
+    InputSource, Invocation, NetconfVersion, Origin, OutputStyle, Payload, PrivateKeySpec,
+    ReadOptions, SshSettings, Subscription, TransportKind, UtcTimestamp, WithDefaults,
+    normalize_sha256_fingerprint,
 };
 use crate::error::Error;
 
@@ -221,10 +223,19 @@ fn with_defaults(value: Option<&str>) -> Result<Option<WithDefaults>, Error> {
 }
 
 fn connection(cli: &Cli) -> Result<ConnectionSpec, Error> {
+    if cli.listen && cli.proto != "ssh" {
+        return Err(Error::Usage(
+            "error: can only listen for call home over ssh".into(),
+        ));
+    }
     let kind = match cli.proto.as_str() {
         "ssh" => TransportKind::Ssh {
             password: cli.password.clone(),
-            private_key: None,
+            private_key: non_empty(&cli.priv_key_file).map(|file| PrivateKeySpec {
+                file: file.into(),
+                key_type: non_empty(&cli.priv_key_type).map(str::to_string),
+            }),
+            settings: ssh_settings(cli)?,
         },
         "tcp" => TransportKind::Tcp {
             groups: cli.groups.clone().unwrap_or_default(),
@@ -237,7 +248,38 @@ fn connection(cli: &Cli) -> Result<ConnectionSpec, Error> {
         port: cli.port,
         username: cli.user.clone(),
         kind,
-        call_home: None,
+        call_home: cli.listen.then(|| CallHome {
+            address: cli.listen_address.clone(),
+            port: cli.listen_port,
+        }),
+    })
+}
+
+fn ssh_settings(cli: &Cli) -> Result<SshSettings, Error> {
+    let host_key = match (
+        non_empty(&cli.known_hosts),
+        non_empty(&cli.host_key_fingerprint),
+    ) {
+        (Some(_), Some(_)) => {
+            return Err(Error::Usage(
+                "error: --known-hosts and --host-key-fingerprint cannot be combined".into(),
+            ));
+        }
+        (Some(file), None) => HostKeyCheck::KnownHosts(file.into()),
+        (None, Some(text)) => HostKeyCheck::Fingerprint(
+            normalize_sha256_fingerprint(text)
+                .ok_or_else(|| bad_value("host-key-fingerprint", text))?,
+        ),
+        (None, None) => HostKeyCheck::AcceptAny,
+    };
+    Ok(SshSettings {
+        algorithms: AlgorithmSpecs {
+            kex: cli.ssh_kex.clone(),
+            host_key: cli.ssh_host_key_algs.clone(),
+            ciphers: cli.ssh_ciphers.clone(),
+            macs: cli.ssh_macs.clone(),
+        },
+        host_key,
     })
 }
 

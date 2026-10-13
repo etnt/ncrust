@@ -35,6 +35,7 @@ pub enum TransportKind {
     Ssh {
         password: String,
         private_key: Option<PrivateKeySpec>,
+        settings: SshSettings,
     },
     /// NSO/ConfD IPC over TCP; `groups` and `sup_gids` go into the connection preamble.
     Tcp { groups: String, sup_gids: String },
@@ -51,6 +52,36 @@ pub struct PrivateKeySpec {
 pub struct CallHome {
     pub address: String,
     pub port: u16,
+}
+
+/// SSH settings beyond user and credentials.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SshSettings {
+    pub algorithms: AlgorithmSpecs,
+    pub host_key: HostKeyCheck,
+}
+
+/// Algorithm choices as typed by the user, in OpenSSH list syntax: a comma separated list that
+/// replaces the default, or `+a,b` (append), `-a,b` (remove) and `^a,b` (put first).
+/// `None` keeps the default.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct AlgorithmSpecs {
+    pub kex: Option<String>,
+    pub host_key: Option<String>,
+    pub ciphers: Option<String>,
+    pub macs: Option<String>,
+}
+
+/// How the server's host key is checked.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum HostKeyCheck {
+    /// Accept any key, as the Python script does.
+    #[default]
+    AcceptAny,
+    /// The key must be listed for the host in this OpenSSH `known_hosts` file.
+    KnownHosts(PathBuf),
+    /// The key must have this fingerprint, written like `SHA256:...`.
+    Fingerprint(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,6 +133,17 @@ pub enum InputSource {
 pub enum Filter {
     XPath(String),
     Subtree(InputSource),
+}
+
+/// The canonical form `SHA256:<43 base64 characters>` of a host key fingerprint, as printed by
+/// `ssh-keygen -l`, or `None` if `text` is not one.
+pub fn normalize_sha256_fingerprint(text: &str) -> Option<String> {
+    let digest = text.trim().strip_prefix("SHA256:")?.trim_end_matches('=');
+    let valid = digest.len() == 43
+        && digest
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/');
+    valid.then(|| format!("SHA256:{digest}"))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -355,6 +397,7 @@ mod tests {
                 kind: TransportKind::Ssh {
                     password: "admin".into(),
                     private_key: None,
+                    settings: SshSettings::default(),
                 },
                 call_home: None,
             },

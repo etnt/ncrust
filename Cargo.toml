@@ -16,15 +16,17 @@ path = "src/main.rs"
 
 [features]
 default = ["russh"]
-# SSH back ends (see plan/IMPLEMENTATION_PLAN.md, P3). Dependencies are added with the back ends.
-russh = []
+# SSH back ends (see plan/IMPLEMENTATION_PLAN.md, P3).
+russh = ["dep:russh", "dep:tokio"]
 ssh-subprocess = []
 
 [dependencies]
 clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
 roxmltree = "0.20"
+russh = { version = "0.64", default-features = false, features = ["aws-lc-rs", "rsa"], optional = true }
 rustix = { version = "1", default-features = false, features = ["std", "process"] }
 thiserror = "2"
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "net", "time", "io-util", "sync"], optional = true }
 
 [dev-dependencies]
 assert_cmd = "2"

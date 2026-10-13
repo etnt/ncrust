@@ -30,6 +30,19 @@ Defaults are the Python defaults. "Used by" names the `Action` (or the connectio
 | 16 | `--groups` | `-g` | `groups` | empty | comma string | tcp | `TransportKind::Tcp::groups` |
 | 17 | `--sup-groups` | `-G` | `supgroups` | empty | comma string of ints | tcp | `TransportKind::Tcp::sup_gids` |
 
+Options that only ncrust has (P3; the Python script has no counterpart):
+
+| Option | Default | Used by | Rust field |
+|---|---|---|---|
+| `--known-hosts FILE` | none (any host key is accepted) | ssh | `HostKeyCheck::KnownHosts` |
+| `--host-key-fingerprint SHA256:...` | none | ssh; not with `--known-hosts` | `HostKeyCheck::Fingerprint` |
+| `--ssh-kex LIST` | library default (classical) | ssh | `AlgorithmSpecs::kex` |
+| `--ssh-host-key-algs LIST` | library default | ssh | `AlgorithmSpecs::host_key` |
+| `--ssh-ciphers LIST` | library default | ssh | `AlgorithmSpecs::ciphers` |
+| `--ssh-macs LIST` | library default | ssh | `AlgorithmSpecs::macs` |
+
+A `LIST` is a comma separated list that replaces the default, or starts with `+` (append), `-` (remove) or `^` (put first), with `*` and `?` patterns, as in OpenSSH.
+
 ## Commands
 
 | # | Option | Short | Python dest | Default | Type | Used by | Rust field |

@@ -275,14 +275,3 @@ fn connection_refused_is_reported_on_stdout() {
         matches!(&err, ncrust::error::Error::Stdout(m) if m.starts_with("Failed to connect to 127.0.0.1: "))
     );
 }
-
-#[test]
-fn ssh_is_not_available_yet() {
-    let mut inv = invocation(2022, get_config(), OutputStyle::Plain, 1);
-    inv.connection.kind = TransportKind::Ssh {
-        password: "admin".into(),
-        private_key: None,
-    };
-    let err = run(&inv).0.unwrap_err();
-    assert!(matches!(err, ncrust::error::Error::Stdout(_)), "{err}");
-}

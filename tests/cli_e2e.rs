@@ -120,12 +120,17 @@ fn help_goes_to_stdout_with_exit_code_0() {
 }
 
 #[test]
-fn ssh_is_the_default_protocol_but_not_available_yet() {
+fn ssh_is_the_default_protocol() {
+    let port = {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap().port()
+    };
     cargo_bin_cmd!("netconf-console")
+        .args(["--host", "127.0.0.1", "--port", &port.to_string()])
         .args(["--hello", "-s", "plain"])
         .assert()
         .code(1)
-        .stdout(contains("SSH is not implemented yet"));
+        .stdout(contains("Failed to connect to 127.0.0.1: "));
 }
 
 fn formatted(xml: &str) -> String {

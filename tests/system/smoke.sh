@@ -2,6 +2,7 @@
 # Smoke test against a real ConfD/NSO NETCONF TCP port. Not part of CI.
 #
 #   NC_HOST (127.0.0.1)  NC_PORT (2023)  NC_BIN (target/debug/netconf-console)
+#   NC_PROTO (tcp)  NC_PROTO=ssh NC_PORT=2022 runs the same checks over SSH
 #   NC_PY_REF=/path/to/trunk/bin/netconf-console.py  also compares plain output with the Python script
 #
 # Needs a server with netconf TCP enabled, e.g. examples.confd/intro/1-2-3-start-query-model.
@@ -10,12 +11,13 @@ set -eu
 here=$(cd "$(dirname "$0")" && pwd)
 HOST=${NC_HOST:-127.0.0.1}
 PORT=${NC_PORT:-2023}
+PROTO=${NC_PROTO:-tcp}
 BIN=${NC_BIN:-$here/../../target/debug/netconf-console}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
-rust() { "$BIN" --proto tcp --host "$HOST" --port "$PORT" "$@"; }
+rust() { "$BIN" --proto "$PROTO" --host "$HOST" --port "$PORT" "$@"; }
 
 check() { # name, command output, expected substring
     case "$2" in *"$3"*) echo "ok   $1" ;; *) fail "$1: expected '$3' in: $2" ;; esac
@@ -56,7 +58,7 @@ n=$(rust --get -s plain --iter 3 | grep -o '<rpc-reply' | wc -l | tr -d ' ')
 echo "ok   iter 3 (plain prints the first reply: $n)"
 
 if [ -n "${NC_PY_REF:-}" ]; then
-    py() { python3 "$NC_PY_REF" --proto tcp --host "$HOST" --port "$PORT" "$@"; }
+    py() { python3 "$NC_PY_REF" --proto "$PROTO" --host "$HOST" --port "$PORT" "$@"; }
     # Operational data (session ids, memory, times) changes between calls, so digits are masked.
     mask() { sed 's/[0-9][0-9]*/N/g'; }
     for args in "--get-config" "--get" "--get-config -x /dhcp" "--get --with-defaults report-all"; do

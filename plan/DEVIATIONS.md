@@ -27,6 +27,12 @@ Where ncrust behaves differently from the Python script on purpose. Add an entry
 | Interactive prompts | printed late when stdout is not a terminal (Python buffers them, `xmllint` output comes first) | printed before the reply they belong to | no child process |
 | Output flushing | flushed after each reply (closing stdout) | flushed after each reply and each raw read | same intent |
 | `--hello` etc. with `-s noaaa` or `pretty` | needs `xmllint` and `awk` in `PATH` | built in; `NETCONF_CONSOLE_XMLLINT=1` still uses `xmllint` | fewer dependencies |
+| `--privKeyType` | selects the key class used to read the file | only a hint: the type is detected from the file; a mismatch prints a warning on stderr | the wrong hint no longer breaks login |
+| Private key problems (unreadable file, unsupported format, passphrase) | traceback | `Cannot use the private key FILE: reason` on stdout, exit code 1 | readable error |
+| Unknown or invalid `--ssh-*` list values | (option does not exist) | `Unsupported <kind> algorithm 'X'. Supported: ...` before connecting | new option |
+| SSH handshake failures other than authentication | traceback | `SSH error: reason` on stdout, exit code 1 | readable error |
+| Refused `netconf` subsystem | `SSHException` traceback | `The server refused the netconf subsystem.` | readable error |
+| `--listen` when the port cannot be bound | traceback | `Failed to listen on ADDRESS:PORT: reason` | readable error |
 
 ## Known gaps of the built-in formatter (`-s pretty|all|last|noaaa`)
 

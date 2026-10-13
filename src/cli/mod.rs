@@ -11,6 +11,7 @@ use crate::config::Invocation;
 use crate::error::Error;
 
 const STYLE: &str = "Style Options";
+const SSH: &str = "SSH Options";
 const TCP: &str = "TCP Options";
 const COMMANDS: &str = "NETCONF Command Options";
 
@@ -52,6 +53,18 @@ pub struct Cli {
     #[arg(long, default_value_t = 2022)]
     pub port: u16,
 
+    /// Start NETCONF Call Home listener
+    #[arg(long)]
+    pub listen: bool,
+
+    /// Listen to this address
+    #[arg(long = "listen-address", default_value = "0.0.0.0")]
+    pub listen_address: String,
+
+    /// Listen to this port
+    #[arg(long = "listen-port", default_value_t = 4334)]
+    pub listen_port: u16,
+
     /// Sends the same request ITER times. Useful only in test scripts
     #[arg(long, default_value_t = 1, allow_negative_numbers = true)]
     pub iter: i64,
@@ -62,6 +75,40 @@ pub struct Cli {
     /// Display output in: raw, plain, pretty, all, last, or noaaa format
     #[arg(short = 's', long = "outputStyle", help_heading = STYLE)]
     pub output_style: Option<String>,
+
+    /// type of private key, rsa, dss or ed25519 (only a hint; the type is detected from the file)
+    #[arg(long = "privKeyType", help_heading = SSH)]
+    pub priv_key_type: Option<String>,
+
+    /// file which contains the private key (without passphrase)
+    #[arg(long = "privKeyFile", help_heading = SSH)]
+    pub priv_key_file: Option<String>,
+
+    /// OpenSSH known_hosts file; the server's host key must be listed there. By default any host
+    /// key is accepted.
+    #[arg(long = "known-hosts", value_name = "FILE", help_heading = SSH)]
+    pub known_hosts: Option<String>,
+
+    /// Expected host key fingerprint, like SHA256:... as printed by ssh-keygen -l
+    #[arg(long = "host-key-fingerprint", value_name = "FINGERPRINT", help_heading = SSH)]
+    pub host_key_fingerprint: Option<String>,
+
+    /// Key exchange algorithms: a comma separated list, or a list starting with +, - or ^ to
+    /// append to, remove from, or put first in the default list
+    #[arg(long = "ssh-kex", value_name = "LIST", allow_hyphen_values = true, help_heading = SSH)]
+    pub ssh_kex: Option<String>,
+
+    /// Host key algorithms, in the same list syntax as --ssh-kex
+    #[arg(long = "ssh-host-key-algs", value_name = "LIST", allow_hyphen_values = true, help_heading = SSH)]
+    pub ssh_host_key_algs: Option<String>,
+
+    /// Ciphers, in the same list syntax as --ssh-kex
+    #[arg(long = "ssh-ciphers", value_name = "LIST", allow_hyphen_values = true, help_heading = SSH)]
+    pub ssh_ciphers: Option<String>,
+
+    /// MAC algorithms, in the same list syntax as --ssh-kex
+    #[arg(long = "ssh-macs", value_name = "LIST", allow_hyphen_values = true, help_heading = SSH)]
+    pub ssh_macs: Option<String>,
 
     /// Set group membership for user - comma separated string
     #[arg(short = 'g', long, help_heading = TCP)]
@@ -241,7 +288,8 @@ pub fn parse(args: &[String]) -> Result<Parsed, Error> {
 mod tests {
     use super::*;
     use crate::config::{
-        Action, Db, Filter, InputSource, NetconfVersion, OutputStyle, TransportKind, WithDefaults,
+        Action, AlgorithmSpecs, CallHome, Db, Filter, HostKeyCheck, InputSource, NetconfVersion,
+        OutputStyle, PrivateKeySpec, SshSettings, TransportKind, WithDefaults,
     };
 
     fn invocation(args: &[&str]) -> Invocation {
@@ -276,7 +324,8 @@ mod tests {
             inv.connection.kind,
             TransportKind::Ssh {
                 password: "admin".into(),
-                private_key: None
+                private_key: None,
+                settings: SshSettings::default(),
             }
         );
         assert_eq!(
@@ -284,6 +333,118 @@ mod tests {
             (None, 1, None, false)
         );
         assert_eq!(get_config_db(&["--get-config"]), Db::default());
+    }
+
+    #[test]
+    fn ssh_options() {
+        let inv = invocation(&[
+            "--hello",
+            "--privKeyFile",
+            "id",
+            "--privKeyType",
+            "rsa",
+            "--ssh-kex",
+            "^mlkem768x25519-sha256",
+            "--ssh-host-key-algs",
+            "ssh-ed25519",
+            "--ssh-ciphers",
+            "-aes128-ctr",
+            "--ssh-macs",
+            "+hmac-sha1",
+            "--known-hosts",
+            "kh",
+        ]);
+        let TransportKind::Ssh {
+            private_key,
+            settings,
+            ..
+        } = inv.connection.kind
+        else {
+            panic!("not ssh");
+        };
+        assert_eq!(
+            private_key,
+            Some(PrivateKeySpec {
+                file: "id".into(),
+                key_type: Some("rsa".into())
+            })
+        );
+        assert_eq!(
+            settings,
+            SshSettings {
+                algorithms: AlgorithmSpecs {
+                    kex: Some("^mlkem768x25519-sha256".into()),
+                    host_key: Some("ssh-ed25519".into()),
+                    ciphers: Some("-aes128-ctr".into()),
+                    macs: Some("+hmac-sha1".into()),
+                },
+                host_key: HostKeyCheck::KnownHosts("kh".into()),
+            }
+        );
+    }
+
+    #[test]
+    fn host_key_fingerprints_are_checked_when_parsing() {
+        let fingerprint = "SHA256:nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8";
+        let inv = invocation(&["--hello", "--host-key-fingerprint", fingerprint]);
+        let TransportKind::Ssh { settings, .. } = inv.connection.kind else {
+            panic!("not ssh");
+        };
+        assert_eq!(
+            settings.host_key,
+            HostKeyCheck::Fingerprint(fingerprint.into())
+        );
+
+        assert_eq!(
+            error(&["--hello", "--host-key-fingerprint", "MD5:aa"]).to_string(),
+            "Bad --host-key-fingerprint value: MD5:aa"
+        );
+        assert!(matches!(
+            error(&[
+                "--hello",
+                "--known-hosts",
+                "kh",
+                "--host-key-fingerprint",
+                fingerprint
+            ]),
+            Error::Usage(_)
+        ));
+    }
+
+    #[test]
+    fn call_home_options() {
+        let inv = invocation(&["--hello", "--listen"]);
+        assert_eq!(
+            inv.connection.call_home,
+            Some(CallHome {
+                address: "0.0.0.0".into(),
+                port: 4334
+            })
+        );
+        let inv = invocation(&[
+            "--hello",
+            "--listen",
+            "--listen-address",
+            "::1",
+            "--listen-port",
+            "99",
+        ]);
+        assert_eq!(
+            inv.connection.call_home,
+            Some(CallHome {
+                address: "::1".into(),
+                port: 99
+            })
+        );
+        assert_eq!(invocation(&["--hello"]).connection.call_home, None);
+    }
+
+    #[test]
+    fn call_home_needs_ssh() {
+        let err = error(&["--hello", "--listen", "--proto", "tcp"]);
+        assert!(
+            matches!(&err, Error::Usage(m) if m.ends_with("can only listen for call home over ssh"))
+        );
     }
 
     #[test]

@@ -5,6 +5,7 @@
 #
 #   NC_PY_REF=/path/to/trunk/bin/netconf-console.py   (required)
 #   NC_HOST (127.0.0.1)  NC_PORT (2023)  NC_BIN (target/debug/netconf-console)
+#   NC_PROTO (tcp)  NC_PROTO=ssh NC_PORT=2022 compares over SSH (Python then needs paramiko)
 #
 # Needs the dhcpd example model (examples.confd/intro/1-2-3-start-query-model) in the server;
 # cases that change data are idempotent.
@@ -14,6 +15,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 : "${NC_PY_REF:?set NC_PY_REF to the path of netconf-console.py}"
 HOST=${NC_HOST:-127.0.0.1}
 PORT=${NC_PORT:-2023}
+PROTO=${NC_PROTO:-tcp}
 BIN=${NC_BIN:-$here/../../target/debug/netconf-console}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -25,10 +27,10 @@ different=0
 compare() { # "arguments" [stdin file]
     local args="$1" input="${2:-/dev/null}"
     # shellcheck disable=SC2086
-    timeout 30 "$BIN" --proto tcp --host "$HOST" --port "$PORT" $args < "$input" 2> "$tmp/r.err" | mask > "$tmp/r.out"
+    timeout 30 "$BIN" --proto "$PROTO" --host "$HOST" --port "$PORT" $args < "$input" 2> "$tmp/r.err" | mask > "$tmp/r.out"
     local rc_rust=${PIPESTATUS[0]}
     # shellcheck disable=SC2086
-    timeout 30 python3 "$NC_PY_REF" --proto tcp --host "$HOST" --port "$PORT" $args < "$input" 2> "$tmp/p.err" | mask > "$tmp/p.out"
+    timeout 30 python3 "$NC_PY_REF" --proto "$PROTO" --host "$HOST" --port "$PORT" $args < "$input" 2> "$tmp/p.err" | mask > "$tmp/p.out"
     local rc_python=${PIPESTATUS[0]}
     if cmp -s "$tmp/r.out" "$tmp/p.out" && [ "$rc_rust" = "$rc_python" ]; then
         same=$((same + 1))
