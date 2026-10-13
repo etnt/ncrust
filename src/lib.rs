@@ -19,11 +19,13 @@ use error::Error;
 
 /// Runs the tool with `args` (without the program name); normal output goes to `out`.
 pub fn run(args: &[String], out: &mut impl Write) -> Result<(), Error> {
-    if args.iter().any(|a| a == "-h" || a == "--help") {
-        writeln!(out, "Usage: netconf-console [options] [<filename> | -]")?;
-        return Ok(());
+    match cli::parse(args)? {
+        cli::Parsed::Help(text) => {
+            out.write_all(text.as_bytes())?;
+            Ok(())
+        }
+        cli::Parsed::Run(invocation) => runner::run(&invocation, out),
     }
-    Err(Error::Stderr("netconf-console: not implemented yet".into()))
 }
 
 #[cfg(test)]
@@ -38,10 +40,10 @@ mod tests {
     }
 
     #[test]
-    fn anything_else_is_not_implemented_yet() {
+    fn missing_command_is_a_usage_error() {
         let mut out = Vec::new();
         let err = run(&[], &mut out).unwrap_err();
-        assert!(matches!(err, Error::Stderr(_)));
+        assert!(matches!(err, Error::Usage(_)));
         assert!(out.is_empty());
     }
 }

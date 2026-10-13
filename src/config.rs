@@ -79,6 +79,18 @@ impl Default for Db {
     }
 }
 
+impl Db {
+    /// The name is sent as an element name, so only plain XML name characters are accepted.
+    pub fn parse(name: &str) -> Option<Db> {
+        let mut chars = name.chars();
+        let first_ok = chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_');
+        let rest_ok = chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
+        (first_ok && rest_ok).then(|| Db(name.to_string()))
+    }
+}
+
 /// Where a payload (filter, edit data, rpc, session script) is read from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputSource {
@@ -192,6 +204,16 @@ mod tests {
     #[test]
     fn default_db_is_running() {
         assert_eq!(Db::default(), Db("running".to_string()));
+    }
+
+    #[test]
+    fn db_names_must_be_usable_as_element_names() {
+        for ok in ["running", "candidate", "startup", "my-ds.1", "_x"] {
+            assert_eq!(Db::parse(ok), Some(Db(ok.to_string())), "{ok}");
+        }
+        for bad in ["", "1a", "a b", "a/>", "a:b", "-a", "ä"] {
+            assert_eq!(Db::parse(bad), None, "{bad}");
+        }
     }
 
     #[test]

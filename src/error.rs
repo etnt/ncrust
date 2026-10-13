@@ -19,6 +19,9 @@ pub enum Error {
     /// Failure reported on stderr (Python `StderrError`: protocol and formatting failures).
     #[error("{0}")]
     Stderr(String),
+    /// Bad command line (Python `parser.error`): reported on stderr, exit code 2.
+    #[error("{0}")]
+    Usage(String),
     #[error("{0}")]
     Io(#[from] io::Error),
 }
@@ -27,13 +30,16 @@ impl Error {
     pub fn stream(&self) -> Stream {
         match self {
             Error::Stdout(_) => Stream::Stdout,
-            Error::Stderr(_) | Error::Io(_) => Stream::Stderr,
+            Error::Stderr(_) | Error::Usage(_) | Error::Io(_) => Stream::Stderr,
         }
     }
 
-    /// All failures exit with 1, as the Python script does.
+    /// 2 for usage errors, 1 for everything else, as the Python script does.
     pub fn exit_code(&self) -> u8 {
-        1
+        match self {
+            Error::Usage(_) => 2,
+            _ => 1,
+        }
     }
 
     pub fn is_broken_pipe(&self) -> bool {
@@ -90,6 +96,12 @@ mod tests {
         let io_err = io::Error::new(io::ErrorKind::PermissionDenied, "denied");
         let (code, out, err) = run_report(&Error::from(io_err));
         assert_eq!((code, out.as_str(), err.as_str()), (1, "", "denied\n"));
+    }
+
+    #[test]
+    fn usage_error_goes_to_stderr_with_exit_code_2() {
+        let (code, out, err) = run_report(&Error::Usage("bad option".into()));
+        assert_eq!((code, out.as_str(), err.as_str()), (2, "", "bad option\n"));
     }
 
     #[test]

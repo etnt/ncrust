@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rpc xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="1" >
+    <get><filter type='subtree'><devices xmlns="http://tail-f.com/ns/ncs"><device><name>ce0</name></device></devices></filter></get>
+</rpc>

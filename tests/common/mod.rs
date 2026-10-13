@@ -1,6 +1,8 @@
 //! Helpers shared by integration tests.
 #![allow(dead_code)]
 
+pub mod mock_server;
+
 use std::io::Write;
 
 use tempfile::NamedTempFile;

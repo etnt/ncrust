@@ -21,6 +21,7 @@ const RULES: &[(&str, &[&str])] = &[
         &[
             "config",
             "error",
+            "framing",
             "input",
             "output",
             "protocol",
@@ -28,7 +29,10 @@ const RULES: &[(&str, &[&str])] = &[
             "transport",
         ],
     ),
-    ("session", &["error", "framing", "protocol", "transport"]),
+    (
+        "session",
+        &["config", "error", "framing", "protocol", "transport"],
+    ),
     ("transport", &["config", "error"]),
 ];
 

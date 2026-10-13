@@ -1,0 +1,27 @@
+{
+  "hello": [
+    {"name": "hello_both", "versions": ["1.0", "1.1"]},
+    {"name": "hello_1_0", "versions": ["1.0"]},
+    {"name": "hello_1_1", "versions": ["1.1"]}
+  ],
+  "requests": [
+    {"name": "get_plain", "cmd": "get"},
+    {"name": "get_xpath", "cmd": "get", "xpath": "/devices/device[name='ce0']/config"},
+    {"name": "get_xpath_double_quotes", "cmd": "get", "xpath": "/a[b=\"c\"]"},
+    {"name": "get_xpath_single_quote", "cmd": "get", "xpath": "/a[b='c']"},
+    {"name": "get_subtree", "cmd": "get", "subtree": "<devices xmlns=\"http://tail-f.com/ns/ncs\"><device><name>ce0</name></device></devices>"},
+    {"name": "get_xpath_wins_over_subtree", "cmd": "get", "xpath": "/a", "subtree": "<b/>"},
+    {"name": "get_wd_explicit", "cmd": "get", "with_defaults": "explicit"},
+    {"name": "get_wd_trim", "cmd": "get", "with_defaults": "trim"},
+    {"name": "get_wd_report_all", "cmd": "get", "with_defaults": "report-all"},
+    {"name": "get_wd_report_all_tagged", "cmd": "get", "with_defaults": "report-all-tagged"},
+    {"name": "get_wd_legacy_true", "cmd": "get", "with_defaults": "true"},
+    {"name": "get_wd_legacy_false", "cmd": "get", "with_defaults": "false"},
+    {"name": "get_inactive", "cmd": "get", "with_inactive": true},
+    {"name": "get_rpc_attribute", "cmd": "get", "rpc_attribute": "xmlns:foo=\"urn:foo\" foo:bar=\"1\""},
+    {"name": "get_config_running", "cmd": "get-config", "db": "running"},
+    {"name": "get_config_candidate_xpath", "cmd": "get-config", "db": "candidate", "xpath": "/aaa/authentication"},
+    {"name": "get_config_startup_subtree_all_options", "cmd": "get-config", "db": "startup", "subtree": "<a><b/></a>", "with_defaults": "report-all", "with_inactive": true, "rpc_attribute": "x=\"y\""},
+    {"name": "get_config_wd_legacy_true", "cmd": "get-config", "db": "running", "with_defaults": "true"}
+  ]
+}
