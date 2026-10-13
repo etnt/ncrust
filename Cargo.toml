@@ -1,0 +1,34 @@
+[package]
+name = "ncrust"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+description = "NETCONF console client (Rust port of netconf-console.py)"
+publish = false
+
+[lib]
+name = "ncrust"
+path = "src/lib.rs"
+
+[[bin]]
+name = "netconf-console"
+path = "src/main.rs"
+
+[features]
+default = ["russh"]
+# SSH back ends (see plan/IMPLEMENTATION_PLAN.md, P3). Dependencies are added with the back ends.
+russh = []
+ssh-subprocess = []
+
+[dependencies]
+thiserror = "2"
+
+[dev-dependencies]
+roxmltree = "0.20"
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
