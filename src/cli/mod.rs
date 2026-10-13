@@ -622,9 +622,10 @@ mod tests {
         );
         assert_eq!(invocation(&["--hello", "--iter", "-1"]).iterations, -1);
         assert!(invocation(&["--hello", "-d"]).debug);
+        // Python prints the replies unformatted for a style it does not know.
         assert_eq!(
-            error(&["--hello", "-s", "bogus"]).to_string(),
-            "Bad --outputStyle value: bogus"
+            invocation(&["--hello", "-s", "bogus"]).style,
+            Some(OutputStyle::Plain)
         );
         assert_eq!(
             error(&["--hello", "-v", "2.0"]).to_string(),

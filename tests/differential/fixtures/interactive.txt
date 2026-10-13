@@ -1,0 +1,4 @@
+<get-config><source><running/></source></get-config>
+
+<get><filter type="xpath" select="/dhcp"/></get>
+

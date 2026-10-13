@@ -6,7 +6,6 @@ Where ncrust behaves differently from the Python script on purpose. Add an entry
 |---|---|---|---|
 | `--proto` other than `ssh`/`tcp` | silently uses tcp | error `Bad --proto value: X` | typo protection |
 | `-v` other than `1.0`/`1.1` | advertises no base capability | error `Bad --version value: X` | the session cannot work |
-| Unknown `-s` style | prints replies unformatted | error `Bad --outputStyle value: X` | typo protection |
 | `-s plain` with `--iter N` (N > 1) | fails after the first reply (stdout is closed) | prints the first reply, skips the rest | what the Python help text documents |
 | `-x` xpath | value starts with a space (words joined with a leading space) | no leading space | cleaner request |
 | XML special characters in xpath, `--db`, ids | inserted unescaped (invalid XML for e.g. `<` in an xpath, or both quote kinds) | escaped; `--db` must be an XML name (`Bad --db value: X`) | correctness / no injection |
@@ -38,6 +37,8 @@ Where ncrust behaves differently from the Python script on purpose. Add an entry
 | `--debug` and a command line that is rejected after parsing (no command, bad `--with-defaults`, ...) | prints `DEBUG: pid: N` first | prints nothing before the error | the pid line is printed by the runner |
 | Ctrl-C | `KeyboardInterrupt` is handled only while waiting for a reply (close the socket, exit 0); elsewhere a traceback | same while waiting for a reply (also exit 0, no `close-session`); elsewhere the process ends by the signal | same contract, no traceback |
 | Output to a closed pipe (`... \| head -1`) | `BrokenPipeError` traceback | silent, exit code 1 | readable |
+| `--debug` pid line position | printed after the output of `xmllint` (its buffer is flushed at exit) when stdout is not a terminal and the style is formatted | printed first | no child process, no buffering difference |
+| `--hello` together with another command | sends the command but prints only the hello of the server | the command wins and its reply is printed | the combination is not used |
 | `TAILF_NETCONF_FORCE_TCP` together with `--listen` | crashes (the TCP transport cannot listen) | usage error `can only listen for call home over ssh` | readable error |
 
 ## Known gaps of the built-in formatter (`-s pretty|all|last|noaaa`)
@@ -49,16 +50,3 @@ It reproduces libxml2 2.9.13 `xmllint --format` (verified with fixtures and rand
 - Raw carriage returns: libxml2 splits text at CR LF, which can change which whitespace is dropped. NETCONF servers do not send them.
 - Names and namespaces are not validated beyond well-formedness, as libxml2 only warns about namespace errors.
 - Other libxml2 versions may differ in rare cases; use `NETCONF_CONSOLE_XMLLINT=1` to get the installed `xmllint`.
-
-## Streams and exit codes (P4.6)
-
-| Situation | Stream | Exit code | Tested by |
-|---|---|---|---|
-| Success | - | 0 | all `cli_e2e` tests |
-| `--help` / `-h` | stdout | 0 | `help_goes_to_stdout_with_exit_code_0` |
-| Bad command line (unknown option, missing argument, no command, call home without ssh) | stderr, `error: ...` | 2 | `an_option_error_goes_to_stderr_with_exit_code_2`, `cli_golden` |
-| Bad option value, connection and authentication failure (Python `StdoutError`) | stdout | 1 | `a_bad_option_value_goes_to_stdout_with_exit_code_1`, `connection_refused_...`, `ssh_e2e` |
-| Protocol and formatting failure (Python `StderrError`) | stderr | 1 | `a_protocol_error_goes_to_stderr_with_exit_code_1` |
-| Ctrl-C while waiting for the server | - | 0 | `signals::ctrl_c_while_waiting_...` |
-| Ctrl-C at any other time | - | killed by SIGINT | `signals::ctrl_c_before_the_connection_...` |
-| Output to a closed pipe | nothing is printed | 1 | `signals::a_closed_pipe_is_silent` |

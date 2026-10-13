@@ -30,7 +30,7 @@ pub struct ConnectionSpec {
     pub call_home: Option<CallHome>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum TransportKind {
     Ssh {
         password: String,
@@ -39,6 +39,29 @@ pub enum TransportKind {
     },
     /// NSO/ConfD IPC over TCP; `groups` and `sup_gids` go into the connection preamble.
     Tcp { groups: String, sup_gids: String },
+}
+
+// Written by hand so that a password can never end up in a log or a panic message.
+impl std::fmt::Debug for TransportKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TransportKind::Ssh {
+                private_key,
+                settings,
+                ..
+            } => f
+                .debug_struct("Ssh")
+                .field("password", &"<hidden>")
+                .field("private_key", private_key)
+                .field("settings", settings)
+                .finish(),
+            TransportKind::Tcp { groups, sup_gids } => f
+                .debug_struct("Tcp")
+                .field("groups", groups)
+                .field("sup_gids", sup_gids)
+                .finish(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -336,6 +359,18 @@ fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn debug_output_hides_the_password() {
+        let kind = TransportKind::Ssh {
+            password: "hunter2".into(),
+            private_key: None,
+            settings: SshSettings::default(),
+        };
+        let shown = format!("{kind:?}");
+        assert!(!shown.contains("hunter2"), "{shown}");
+        assert!(shown.contains("<hidden>"));
+    }
 
     #[test]
     fn timestamps_match_pythons_timegm() {

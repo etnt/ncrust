@@ -1,0 +1,13 @@
+# SSH-only command lines (run with NC_PROTO=ssh NC_PORT=2022 and a Python that has paramiko).
+# The keys are the throwaway test keys of tests/fixtures/ssh; ConfD does not know them, so a
+# login with a key must fail the same way in both programs.
+
+--hello -s plain
+--hello -u admin -p admin -s plain
+--hello -p wrong
+--hello -u nobody -p nobody
+--get-config -x /dhcp -u admin -p admin -s plain
+--privKeyFile {fx}/../../fixtures/ssh/stranger_ed25519 --privKeyType ed25519 --hello
+--privKeyFile {fx}/../../fixtures/ssh/user_rsa --privKeyType rsa --hello
+!diff `--privKeyType` | --privKeyFile {fx}/../../fixtures/ssh/stranger_ed25519 --hello
+!diff Private key problems | --privKeyFile /nonexistent --privKeyType rsa --hello

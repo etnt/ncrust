@@ -323,7 +323,8 @@ fn style(value: Option<&str>) -> Result<Option<OutputStyle>, Error> {
         Some("all") => Some(OutputStyle::All),
         Some("last") => Some(OutputStyle::Last),
         Some("noaaa") => Some(OutputStyle::NoAaa),
-        Some(other) => return Err(bad_value("outputStyle", other)),
+        // trunk's tests use `-s` followed by another option, so the style is e.g. `--db=candidate`.
+        Some(_) => Some(OutputStyle::Plain),
     })
 }
 

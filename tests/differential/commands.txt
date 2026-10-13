@@ -1,0 +1,189 @@
+# Command lines for the differential test (see run.py for the syntax).
+# Connection options are added by the harness. {fx} is tests/differential/fixtures.
+# The shapes come from how trunk uses netconf-console (tools/extract_netconf_console_usage.py).
+# Edits are idempotent, so the server ends in the same state whatever the order.
+
+# --- hello and output styles
+--hello
+--hello -s raw
+--hello -s plain
+--hello -s pretty
+--hello -s all
+--hello -s last
+--hello -s noaaa
+--hello -snoaaa
+--hello -v 1.0
+--hello -v 1.1
+--hello --version 1.1 -s all
+!diff pid line position | --hello --debug
+
+# --- get, get-config, get-data: filters, databases, defaults
+@mask --get
+@mask --get -s plain
+@mask --get -s raw
+@mask --get -snoaaa
+--get -x /dhcp
+--get -x /dhcp/defaultLeaseTime
+--get -x "/dhcp/subnet[net='10.254.0.0/16']"
+--get -x /dhcp --with-defaults report-all
+--get -x /dhcp --with-defaults=explicit
+--get -x /dhcp --with-defaults trim
+--get -x /dhcp --with-defaults report-all-tagged
+@mask --get --with-defaults true
+@mask --get --with-defaults false
+--get --subtree-filter {fx}/dhcp-filter.xml
+--get --subtree-filter - < {fx}/dhcp-filter.xml
+--get -x /dhcp --subtree-filter {fx}/dhcp-filter.xml
+@mask --get --rpc-attribute 'xmlns:x="urn:x" x:y="1"'
+@mask --get --iter 3 -s last
+@mask --get --iter=2 -s all
+@mask --get --iter 2
+@mask --get --with-inactive -x /dhcp
+--get-config
+--get-config -s plain
+--get-config -s raw
+--get-config -snoaaa
+--get-config running
+--get-config candidate
+--get-config startup
+--get-config --db startup
+--get-config --db=candidate
+--get-config -x /dhcp
+--get-config -x /dhcp /defaultLeaseTime
+--get-config -x "/dhcp/subnet"
+--get-config --subtree-filter {fx}/dhcp-filter.xml
+--get-config --subtree-filter - < {fx}/dhcp-filter.xml
+--get-config -x /dhcp --with-defaults=report-all
+--get-config --with-defaults report-all-tagged -s all
+--get-config --with-inactive
+--get-config --iter 2 -s all
+--get-config -v 1.0
+--get-config -v 1.1 -s all
+--get-conf
+!diff together with another command | --get-config --hello
+@timeout=5 --get-config -
+@mask --get-data
+@mask --get-data -s plain
+@mask --get-data -snoaaa
+--get-data -x /dhcp
+@mask --get-data operational
+@mask --get-data --db operational
+--get-data --db=operational -x /dhcp --with-origin
+--get-data --db operational --with-origin --origin-filter=default --origin-filter=intended
+--get-data --origin-filter intended
+--get-data --negated-origin-filter intended
+--get-data --with-origin -x /dhcp
+--get-data --max-depth 1
+--get-data --max-depth 2 -x /dhcp
+--get-data --config-filter true
+--get-data --db operational --config-filter false -x /dhcp
+--get-data --subtree-filter {fx}/dhcp-filter.xml
+--get-data --db running --subtree-filter - < {fx}/dhcp-filter.xml
+--get-data -x /dhcp --with-defaults report-all
+--get-data --iter=10 -s last -x /dhcp
+--get-data --with-inactive
+
+# --- schema
+--get-schema ietf-netconf
+--get-schema ietf-netconf-monitoring
+--get-schema ietf-netconf-monitoring -s pretty
+--get-schema ietf-netconf-monitoring -s raw
+--get-schema no-such-module
+--get-schema dhcpd -s plain
+
+# --- configuration changes
+--edit-config {fx}/dhcp-edit.xml
+--edit-config {fx}/dhcp-edit.xml -s plain
+--edit-config {fx}/dhcp-edit.xml -s raw
+--edit-config - -s plain < {fx}/dhcp-edit.xml
+--edit-config {fx}/dhcp-edit.xml --db candidate
+!diff `--trace-id` | --edit-config {fx}/dhcp-edit.xml --trace-id 5a2eab53-6e35-4c93-9c2e-3b5a1b0aef9e
+!diff Missing/unreadable input file | --edit-config=/nonexistent
+--edit-data {fx}/dhcp-edit.xml
+--edit-data {fx}/dhcp-edit.xml --db intended
+--edit-data - -s plain < {fx}/dhcp-edit.xml
+--copy-config {fx}/dhcp-edit.xml --db candidate
+--copy-config - -s plain < {fx}/dhcp-edit.xml
+!diff `--trace-id` | --copy-config {fx}/dhcp-edit.xml --trace-id 5a2eab53-6e35-4c93-9c2e-3b5a1b0aef9e
+--validate
+--validate --db candidate
+--db=candidate --validate
+--commit
+--db candidate --commit
+--discard-changes
+--copy-running-to-startup
+--kill-session 424242
+--kill-subscription 1
+--kill-subscription=42 -s all
+!diff pid line position | -d --kill-subscription 1
+
+# --- free form requests and session files
+--rpc {fx}/rpc-get-config.xml
+--rpc={fx}/rpc-get-config.xml
+--rpc - < {fx}/rpc-get-config.xml
+--rpc {fx}/rpc-get-config.xml -s plain
+--rpc {fx}/rpc-get-config.xml -s raw
+--rpc {fx}/rpc-get-filter.xml -s all
+--rpc {fx}/rpc-get-config.xml --rpc-attribute 'xmlns:w3ctc="urn:ietf:params:xml:ns:netconf:w3ctc:1.0" w3ctc:tracestate="key1=val1"'
+--rpc {fx}/rpc-bad.xml
+--rpc {fx}/broken.xml
+!diff Missing/unreadable input file | --rpc /nonexistent
+@timeout=5 {fx}/session.xml
+@timeout=5 {fx}/session.xml -s all
+@timeout=5 {fx}/session.xml -s raw
+!diff `-s plain` with several replies | @timeout=5 {fx}/session.xml -s plain
+@timeout=5 - < {fx}/session.xml
+@timeout=5 -s raw - < {fx}/session.xml
+!diff Interactive prompts | @timeout=5 -i < {fx}/interactive.txt
+!diff Interactive prompts | @timeout=5 -i -v 1.1 < {fx}/interactive.txt
+!diff Interactive prompts | @timeout=5 -i -s plain < {fx}/interactive.txt
+!diff Interactive prompts | @timeout=5 -d -i < {fx}/interactive.txt
+
+# --- subscriptions (never end by themselves: killed after a few seconds)
+@timeout=4 --create-subscription NETCONF
+@timeout=4 -s all --create-subscription=NETCONF
+@timeout=4 -s raw --create-subscription NETCONF
+@timeout=4 --create-subscription NETCONF -x /dhcp
+@timeout=4 --create-subscription NETCONF --xpath /test/name
+@timeout=4 --create-subscription NETCONF --subtree-filter {fx}/dhcp-filter.xml
+@timeout=4 --create-subscription NETCONF --start-time 2010-01-01T00:00:00
+@timeout=4 --create-subscription NETCONF --start-time 2010-01-01T00:00:00 --stop-time 2010-01-01T00:00:01
+@timeout=4 --establish-subscription NETCONF
+@timeout=4 -s all --establish-subscription=NETCONF
+@timeout=4 --establish-subscription NETCONF --replay-start-time 2010-01-01T00:00:00
+@timeout=4 --establish-subscription NETCONF -x /dhcp
+@timeout=4 --create-subscription NO-SUCH-STREAM
+
+# --- option syntax as used in trunk
+@timeout=5 -s all {fx}/session.xml
+-sall --get-config
+--outputStyle=plain --get-config
+--outputS plain --get-config
+-s --db=candidate --commit
+--hello -u admin -p admin
+--hello --user=admin --password=admin
+--hello -uadmin -padmin
+--hello --user bogus
+--hello -p wrong
+--hello -g admin -G 0
+--hello --group=admin
+--hello --groups=admin --sup-groups=0
+!diff pid line position | --get -x /dhcp -d
+!diff pid line position | --get -d -x /dhcp
+@mask --get --db operational
+--get-config candidate -x /dhcp
+-v 1.0 --get --subtree-filter - < {fx}/dhcp-filter.xml
+
+# --- command line problems
+--get --with-defaults bogus
+--get-data --origin-filter invalid -x /dhcp
+--get-data --negated-origin-filter invalid
+!diff `--config-filter` other than | --get-data --config-filter maybe
+@mask --get --outputStyle bogus
+!diff `-v` other than | --get -v 2.0
+@mask --get --db bogus-db
+@usage --get --nope
+@usage --hello=1
+@usage --port x
+!diff `--proto` other than | --proto udp --hello
+!diff More than one positional argument | a b

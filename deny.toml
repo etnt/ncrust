@@ -3,6 +3,9 @@ all-features = true
 
 [advisories]
 version = 2
+ignore = [
+    { id = "RUSTSEC-2023-0071", reason = "Marvin timing attack on the rsa crate, which russh uses for RSA user keys. Only signing with a user's own RSA key is affected, and an attacker would have to time many logins; no fixed version exists. See plan/reports/security.md." },
+]
 
 [licenses]
 version = 2

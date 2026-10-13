@@ -5,7 +5,7 @@ mod common;
 
 use std::io::Read;
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc;
+use std::sync::{Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -13,6 +13,14 @@ use common::mock_server::{MockServer, REPLY, Step, hello_steps, round_trip, scri
 use rustix::process::{Pid, Signal, kill_process};
 
 const PATIENCE: Duration = Duration::from_secs(15);
+
+// A child started while another test holds a pipe open would inherit it, and the closed-pipe
+// test would never see its pipe close.
+static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
+fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+    ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 fn binary(port: u16) -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_netconf-console"));
@@ -59,6 +67,7 @@ const NOTIFICATION: &str = "<notification xmlns=\"urn:ietf:params:xml:ns:netconf
 
 #[test]
 fn ctrl_c_while_waiting_closes_the_connection_and_exits_with_0() {
+    let _serial = one_at_a_time();
     let server = MockServer::start(script(vec![
         hello_steps(),
         vec![
@@ -102,6 +111,7 @@ fn ctrl_c_while_waiting_closes_the_connection_and_exits_with_0() {
 
 #[test]
 fn ctrl_c_before_the_connection_is_made_still_ends_the_program() {
+    let _serial = one_at_a_time();
     // A listener that never answers keeps the client waiting for the server's hello.
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
@@ -120,6 +130,7 @@ fn ctrl_c_before_the_connection_is_made_still_ends_the_program() {
 
 #[test]
 fn a_closed_pipe_is_silent() {
+    let _serial = one_at_a_time();
     let server = MockServer::start(script(vec![hello_steps(), round_trip(REPLY)]));
     let mut child = binary(server.port)
         .args(["--get-config", "-s", "plain"])
