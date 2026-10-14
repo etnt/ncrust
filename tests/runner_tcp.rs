@@ -1,4 +1,5 @@
 //! Runs the whole tool (minus argument parsing) against the in-process mock server over TCP.
+#![cfg(feature = "tailf-compat")]
 
 mod common;
 

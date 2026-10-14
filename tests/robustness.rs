@@ -10,7 +10,9 @@ use std::path::PathBuf;
 
 use ncrust::config::NetconfVersion;
 use ncrust::framing::{Decoder, Frame, Framing, FramingError};
-use ncrust::output::{noaaa, pretty, schema};
+#[cfg(feature = "tailf-compat")]
+use ncrust::output::noaaa;
+use ncrust::output::{pretty, schema};
 use ncrust::protocol::hello::{client_hello, negotiate, parse_server_hello};
 use proptest::prelude::*;
 
@@ -149,6 +151,7 @@ proptest! {
     fn the_formatters_never_panic(bytes in prop::collection::vec(any::<u8>(), 0..400)) {
         let _ = pretty::format(&bytes);
         let _ = schema::extract(&bytes);
+        #[cfg(feature = "tailf-compat")]
         let _ = noaaa::filter(&bytes);
     }
 
@@ -249,6 +252,7 @@ fn saved_inputs_are_handled() {
         let _ = parse_server_hello(&bytes);
         let _ = pretty::format(&bytes);
         let _ = schema::extract(&bytes);
+        #[cfg(feature = "tailf-compat")]
         let _ = noaaa::filter(&bytes);
         count += 1;
     }

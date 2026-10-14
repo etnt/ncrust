@@ -1,24 +1,38 @@
 # ncrust
 
-`netconf-console`: a NETCONF command line client, a Rust port of `bin/netconf-console.py` of the
-parent `trunk` repository. It takes the same options, sends the same requests and prints the same
-output, without Python, `paramiko` or `xmllint`.
+`ncrust` is a NETCONF command line client. It is a Rust port of `netconf-console.py` and takes
+the same options, sends the same requests and prints the same output, without Python, `paramiko`
+or `xmllint`. It is a general purpose NETCONF tool; if it is started under another name (for
+example through a link called `netconf-console`) the usage messages show that name.
 
 Status: the port is feature complete and checked against the Python script (see
-[plan/reports](plan/reports)). It is not yet installed in `trunk` in place of the script
-(phase P6 of [plan/IMPLEMENTATION_PLAN.md](plan/IMPLEMENTATION_PLAN.md)).
+[plan/reports](plan/reports)). The work plan is in
+[plan/IMPLEMENTATION_PLAN.md](plan/IMPLEMENTATION_PLAN.md).
 
 ## Build
 
 Rust 1.91.1 is pinned in `rust-toolchain.toml`; `rustup` installs it on first use.
 
 ```sh
-cargo build --release          # target/release/netconf-console
-cargo build                    # debug build, target/debug/netconf-console
+cargo build --release          # target/release/ncrust
+cargo build                    # debug build, target/debug/ncrust
 ```
 
-SSH comes from the `russh` crate and is on by default. `--no-default-features` builds a client
-that only speaks `--proto tcp`.
+SSH comes from the `russh` crate and is on by default.
+
+### Cargo features
+
+| Feature | Default | Meaning |
+|---|---|---|
+| `russh` | on | the SSH transport |
+| `tailf-compat` | off | Tail-f NSO and ConfD support: `--proto tcp` (their IPC port) with `-g`/`-G`, `-s noaaa`, `--with-inactive`, `--trace-id`, `--with-defaults true\|false`, `TAILF_NETCONF_FORCE_TCP`, and the defaults of `netconf-console.py` (port 2022, user and password `admin`) |
+
+```sh
+cargo build --release --features tailf-compat   # what NSO and ConfD build
+```
+
+Without `tailf-compat` the defaults are those of a general NETCONF client: port 830, the user
+running the program, an empty password.
 
 ## Use
 
@@ -26,25 +40,25 @@ The command line is the one of the Python script. Connection options come first,
 command (or a session file):
 
 ```sh
-# SSH, the default: localhost:2022, user admin, password admin
-netconf-console --get-config -x /devices/device
+# SSH: localhost:830 (with --features tailf-compat: localhost:2022, user admin, password admin)
+ncrust --get-config -x /devices/device
 
-# NETCONF over the NSO/ConfD IPC port
-netconf-console --proto tcp --port 2023 --get-config
+# With --features tailf-compat: NETCONF over the NSO/ConfD IPC port
+ncrust --proto tcp --port 2023 --get-config
 
-netconf-console --host nso.example.com --port 830 -u oper -p secret --get -x /interfaces
-netconf-console --get-data --db operational --with-origin -x /interfaces
-netconf-console --edit-config changes.xml --db candidate
-netconf-console --rpc request.xml
-netconf-console -s all --iter 3 --get
-netconf-console --create-subscription NETCONF -s raw
-netconf-console session.xml            # a complete session script; '-' reads standard input
-netconf-console -i                     # interactive
-netconf-console --help
+ncrust --host nso.example.com --port 830 -u oper -p secret --get -x /interfaces
+ncrust --get-data --db operational --with-origin -x /interfaces
+ncrust --edit-config changes.xml --db candidate
+ncrust --rpc request.xml
+ncrust -s all --iter 3 --get
+ncrust --create-subscription NETCONF -s raw
+ncrust session.xml            # a complete session script; '-' reads standard input
+ncrust -i                     # interactive
+ncrust --help
 ```
 
 Output styles (`-s`): `pretty` (default, formatted like `xmllint --format`), `plain`, `raw`
-(the bytes on the wire without framing), `all`, `last`, `noaaa`.
+(the bytes on the wire without framing), `all`, `last`, and with `tailf-compat` `noaaa`.
 
 Options that only ncrust has:
 
@@ -58,7 +72,7 @@ By default any host key is accepted, as in the Python script. With `--debug` the
 algorithms are printed on stderr. Post-quantum key exchange (`mlkem768x25519-sha256`) is available
 on request with `--ssh-kex`; see [plan/pqc-extension-points.md](plan/pqc-extension-points.md).
 
-Environment:
+Environment (the first only with `tailf-compat`):
 
 | Variable | Effect |
 |---|---|
@@ -77,8 +91,15 @@ behaves differently from the script on purpose.
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
+cargo clippy --all-targets --features tailf-compat -- -D warnings
+cargo test --features tailf-compat
 cargo deny check                 # licences, advisories, bans, sources
 ```
+
+The tests that need the TCP transport, `noaaa` or the Python defaults (the mock-server based
+runner and CLI tests, the golden files made from the Python script) only run with
+`--features tailf-compat`. The scripts under `tests/system`, `tests/differential` and `tests/perf`
+need a binary built with it.
 
 `cargo test` needs nothing but this repository: the NETCONF and SSH peers are in-process fakes
 (`tests/common`). Some tests are compared with files made from the Python script
@@ -114,3 +135,9 @@ plan/            plan, decisions, deviations, reports
 ```
 
 Which module may use which is checked by `tests/architecture.rs`.
+
+## License
+
+ncrust is licensed under the [Mozilla Public License 2.0](LICENSE) (SPDX: `MPL-2.0`). Its
+dependencies keep their own licenses; `cargo deny check licenses` verifies that they are
+compatible.

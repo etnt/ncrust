@@ -28,6 +28,8 @@ pub struct Prepared {
 }
 
 impl Prepared {
+    // Without `tailf-compat` SSH is the only kind of connection and the pattern always matches.
+    #[cfg_attr(not(feature = "tailf-compat"), allow(irrefutable_let_patterns))]
     pub fn new(spec: &ConnectionSpec) -> Result<Self, Error> {
         let TransportKind::Ssh {
             password,
@@ -66,9 +68,7 @@ fn default_backend() -> Result<Box<dyn SshBackend>, Error> {
     }
     #[cfg(not(feature = "russh"))]
     {
-        Err(Error::Stdout(
-            "This build has no SSH support; use --proto tcp".into(),
-        ))
+        Err(Error::Stdout("This build has no SSH support".into()))
     }
 }
 

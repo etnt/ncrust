@@ -4,7 +4,7 @@ live NETCONF server and compares stdout, stderr and exit code.
 
 Environment:
   NC_PY_REF  path of netconf-console.py (required)
-  NC_BIN     the ncrust binary (default: ../../target/debug/netconf-console)
+  NC_BIN     the ncrust binary (default: ../../target/debug/ncrust)
   NC_HOST (127.0.0.1)  NC_PORT (2023)  NC_PROTO (tcp)   the server
 
 Usage:
@@ -292,7 +292,7 @@ def main():
     if options.self_test:
         sys.exit(self_test(reference))
 
-    candidate = shlex.split(os.environ.get("NC_BIN", str(ROOT / "target" / "debug" / "netconf-console")))
+    candidate = shlex.split(os.environ.get("NC_BIN", str(ROOT / "target" / "debug" / "ncrust")))
     server = (
         os.environ.get("NC_HOST", "127.0.0.1"),
         int(os.environ.get("NC_PORT", "2023")),

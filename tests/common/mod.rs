@@ -59,6 +59,7 @@ pub fn assert_xml_eq(expected: &str, actual: &str) {
 }
 
 /// An invocation against the mock server's TCP port.
+#[cfg(feature = "tailf-compat")]
 pub fn tcp_invocation(
     port: u16,
     action: ncrust::config::Action,

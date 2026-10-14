@@ -12,7 +12,7 @@ end=$(( $(date +%s) + limit ))
 rounds=0
 while [ "$(date +%s)" -lt "$end" ]; do
     # A fresh random seed per round, many cases per round, optimised build for speed.
-    PROPTEST_CASES=${PROPTEST_CASES:-200000} cargo test --release --test robustness -- --quiet
+    PROPTEST_CASES=${PROPTEST_CASES:-200000} cargo test --features tailf-compat --release --test robustness -- --quiet
     rounds=$((rounds + 1))
 done
 echo "robustness: $rounds rounds of ${PROPTEST_CASES:-200000} cases per property, no failure"

@@ -1,4 +1,5 @@
 //! Command lines must be read as the Python script reads them.
+#![cfg(feature = "tailf-compat")]
 //!
 //! `tests/golden/cli_expected.json` is made by `tools/gen_cli_golden.py` from the Python
 //! script: the values optparse produces for each command line in `cli_cases.json`, the
@@ -43,8 +44,11 @@ fn python_view(cli: &Cli) -> Map<String, Value> {
     let pairs = [
         ("version", json!(cli.version)),
         ("debug", json!(cli.debug)),
-        ("username", json!(cli.user)),
-        ("password", json!(cli.password)),
+        ("username", json!(cli.user.as_deref().unwrap_or("admin"))),
+        (
+            "password",
+            json!(cli.password.as_deref().unwrap_or("admin")),
+        ),
         ("proto", json!(cli.proto)),
         ("host", json!(cli.host)),
         ("port", json!(cli.port)),

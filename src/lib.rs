@@ -1,4 +1,4 @@
-//! Library behind the `netconf-console` binary.
+//! Library behind the `ncrust` binary.
 //!
 //! Module dependency rules are enforced by `tests/architecture.rs`.
 

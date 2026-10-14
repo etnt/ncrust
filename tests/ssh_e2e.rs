@@ -22,11 +22,14 @@ fn session() -> MockServer {
     ]))
 }
 
-/// `netconf-console --get-config -s plain` aimed at an SSH server on `port`.
+/// `ncrust --get-config -s plain` aimed at an SSH server on `port`.
 fn client(port: u16) -> Command {
-    let mut cmd = cargo_bin_cmd!("netconf-console");
+    let mut cmd = cargo_bin_cmd!("ncrust");
     cmd.args(["--host", "127.0.0.1", "--port", &port.to_string()])
         .args(["--get-config", "-s", "plain"]);
+    // The credentials the test server accepts are the defaults of the compatibility build only.
+    #[cfg(not(feature = "tailf-compat"))]
+    cmd.args(["-u", "admin", "-p", "admin"]);
     cmd
 }
 
@@ -341,7 +344,7 @@ fn chosen_cipher_and_host_key_algorithm_are_used() {
 #[test]
 fn an_unsupported_algorithm_fails_before_connecting() {
     // No server at all: the check must come first.
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(["--host", "127.0.0.1", "--port", &free_port().to_string()])
         .args(["--hello", "--ssh-kex", "bogus-kex"])
         .assert()
@@ -358,8 +361,9 @@ fn call_home_waits_for_the_server_to_connect() {
     let mock = session();
     let port = free_port();
     let ssh = SshServer::call_home(ServerOptions::default(), mock.port, port);
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(["--listen", "--listen-address", "127.0.0.1"])
+        .args(["-u", "admin", "-p", "admin"])
         .args(["--listen-port", &port.to_string()])
         .args(["--get-config", "-s", "plain"])
         .assert()
@@ -381,8 +385,9 @@ fn a_large_request_is_sent_in_few_data_packets() {
     let file = temp_file_with(payload.as_bytes());
     let mock = session();
     let ssh = SshServer::start(ServerOptions::default(), mock.port);
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(["--host", "127.0.0.1", "--port", &ssh.port.to_string()])
+        .args(["-u", "admin", "-p", "admin"])
         .args(["-s", "plain", "--edit-config"])
         .arg(file.path())
         .assert()

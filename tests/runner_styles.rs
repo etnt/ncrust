@@ -1,4 +1,5 @@
 //! Output styles, special actions and streams, run end to end against the mock server.
+#![cfg(feature = "tailf-compat")]
 
 mod common;
 

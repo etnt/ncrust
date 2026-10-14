@@ -2,6 +2,7 @@
 //!
 //! May depend on: config, error.
 
+#[cfg(feature = "tailf-compat")]
 pub mod noaaa;
 pub mod pretty;
 pub mod schema;
@@ -47,8 +48,12 @@ impl Printer {
         match self.style {
             OutputStyle::Raw => Mode::Discard,
             OutputStyle::Plain if first => Mode::Stream,
-            OutputStyle::Pretty | OutputStyle::NoAaa if first => Mode::Collect,
-            OutputStyle::Plain | OutputStyle::Pretty | OutputStyle::NoAaa => Mode::Discard,
+            OutputStyle::Pretty if first => Mode::Collect,
+            #[cfg(feature = "tailf-compat")]
+            OutputStyle::NoAaa if first => Mode::Collect,
+            OutputStyle::Plain | OutputStyle::Pretty => Mode::Discard,
+            #[cfg(feature = "tailf-compat")]
+            OutputStyle::NoAaa => Mode::Discard,
             OutputStyle::All => Mode::Collect,
             OutputStyle::Last if remaining == 1 => Mode::Collect,
             OutputStyle::Last => Mode::Discard,
@@ -77,6 +82,7 @@ impl Printer {
         } else {
             pretty::format(reply)?
         };
+        #[cfg(feature = "tailf-compat")]
         let formatted = if self.style == OutputStyle::NoAaa {
             noaaa::filter(&formatted)
         } else {
@@ -113,6 +119,7 @@ mod tests {
             modes(OutputStyle::Pretty, &three),
             [Collect, Discard, Discard]
         );
+        #[cfg(feature = "tailf-compat")]
         assert_eq!(
             modes(OutputStyle::NoAaa, &three),
             [Collect, Discard, Discard]
@@ -138,14 +145,17 @@ mod tests {
             .unwrap();
         assert!(String::from_utf8(out).unwrap().contains("<aaa>"));
 
-        let mut out = Vec::new();
-        Printer::new(OutputStyle::NoAaa, false)
-            .print_formatted(xml, &mut out)
-            .unwrap();
-        assert_eq!(
-            String::from_utf8(out).unwrap(),
-            "<?xml version=\"1.0\"?>\n<r>\n  <b/>\n</r>\n"
-        );
+        #[cfg(feature = "tailf-compat")]
+        {
+            let mut out = Vec::new();
+            Printer::new(OutputStyle::NoAaa, false)
+                .print_formatted(xml, &mut out)
+                .unwrap();
+            assert_eq!(
+                String::from_utf8(out).unwrap(),
+                "<?xml version=\"1.0\"?>\n<r>\n  <b/>\n</r>\n"
+            );
+        }
     }
 
     #[test]

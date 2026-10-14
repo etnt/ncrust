@@ -124,9 +124,10 @@ mod tests {
                 host: "localhost".into(),
                 port: 2023,
                 username: "admin".into(),
-                kind: TransportKind::Tcp {
-                    groups: String::new(),
-                    sup_gids: String::new(),
+                kind: TransportKind::Ssh {
+                    password: String::new(),
+                    private_key: None,
+                    settings: Default::default(),
                 },
                 call_home: None,
             },

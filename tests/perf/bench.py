@@ -75,7 +75,7 @@ def main():
     options = parser.parse_args()
 
     reference = [sys.executable, os.environ["NC_PY_REF"]]
-    binary = ROOT / "target" / ("release" if options.release else "debug") / "netconf-console"
+    binary = ROOT / "target" / ("release" if options.release else "debug") / "ncrust"
     implementations = [("python", reference), ("ncrust", [str(binary)])]
 
     with tempfile.TemporaryDirectory() as tmp:

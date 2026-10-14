@@ -21,6 +21,7 @@ use crate::session::Session;
 use crate::transport::Transport;
 use crate::transport::connect::{connect as connect_tcp, listen};
 use crate::transport::ssh;
+#[cfg(feature = "tailf-compat")]
 use crate::transport::tcp::TcpTransport;
 use interrupt::Interrupt;
 use plan::{Plan, Source};
@@ -75,6 +76,7 @@ fn connect(
 ) -> Result<Box<dyn Transport>, Error> {
     let spec = &invocation.connection;
     match &spec.kind {
+        #[cfg(feature = "tailf-compat")]
         TransportKind::Tcp { groups, sup_gids } => Ok(Box::new(TcpTransport::connect(
             &spec.host,
             spec.port,

@@ -4,7 +4,7 @@
 # Digits are masked, because session ids, memory sizes and times change between runs.
 #
 #   NC_PY_REF=/path/to/trunk/bin/netconf-console.py   (required)
-#   NC_HOST (127.0.0.1)  NC_PORT (2023)  NC_BIN (target/debug/netconf-console)
+#   NC_HOST (127.0.0.1)  NC_PORT (2023)  NC_BIN (target/debug/ncrust)
 #   NC_PROTO (tcp)  NC_PROTO=ssh NC_PORT=2022 compares over SSH (Python then needs paramiko)
 #
 # Needs the dhcpd example model (examples.confd/intro/1-2-3-start-query-model) in the server;
@@ -16,7 +16,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 HOST=${NC_HOST:-127.0.0.1}
 PORT=${NC_PORT:-2023}
 PROTO=${NC_PROTO:-tcp}
-BIN=${NC_BIN:-$here/../../target/debug/netconf-console}
+BIN=${NC_BIN:-$here/../../target/debug/ncrust}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 

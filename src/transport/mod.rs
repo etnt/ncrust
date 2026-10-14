@@ -1,9 +1,11 @@
-//! Blocking byte-stream transports (TCP IPC, SSH). Knows nothing about NETCONF messages.
+//! Blocking byte-stream transports (SSH, and with `tailf-compat` the NSO/ConfD IPC over TCP).
+//! Knows nothing about NETCONF messages.
 //!
 //! May depend on: config, error.
 
 pub mod connect;
 pub mod ssh;
+#[cfg(feature = "tailf-compat")]
 pub mod tcp;
 
 use std::io;

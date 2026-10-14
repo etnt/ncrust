@@ -170,13 +170,13 @@ Goal: `trunk` builds and ships the Rust binary; Python script becomes the fallba
 
 | ID | Task | Verify |
 |---|---|---|
-| P6.1 | Decide integration form (git submodule, subtree, or fetched via `deps/ncrust_version`), consistent with other `deps/*_version` entries. | Decision recorded in DECISIONS.md; `trunk` builds fetch it. |
-| P6.2 | Toolchain in `trunk` dev env (`support/nix/devshell.nix`, `shell.nix`, `flake.nix`) and offline vendored crates. | Fresh `nix` shell builds the binary without network after vendoring. |
-| P6.3 | Makefile target (per `makefile.instructions.md`) that builds `--release` and installs `bin/netconf-console`; wrapper chooses `NETCONF_CONSOLE_IMPL=rust|python` (default python until P6.6). `netconf-console-tcp` unchanged. | `make` in the relevant dir builds; wrapper runs either implementation. |
-| P6.4 | Install into `confd_dir/bin`, `ncs_dir/bin`, `ncs_dir/netsim/confd/bin` by following the existing `netconf-console.py` copy rules. | Release build contains the binary in all three; `file` shows correct architecture. |
-| P6.5 | SBOM (`SBOM.spdx.in`) and `licenses/` updated with all Rust crates. | SBOM generation passes; licence check script clean. |
-| P6.6 | Flip default to Rust after a full lux run on all supported platforms is green. | CI report for each platform; wrapper default changed in a single commit. |
-| P6.7 | Release notes / CHANGES entry (use the CHANGES Note Writer agent); document `NETCONF_CONSOLE_IMPL` and new SSH options. | Entry present; reviewed. |
+| P6.1 | Decide integration form (git submodule, subtree, or fetched via `deps/ncrust_version`), consistent with other `deps/*_version` entries. | **Done**: fetched via `deps/ncrust_version` into `lib/ncrust` (D11); `make NCRUST_VERSION=... ncrust` fetched, vendored and built a throwaway repository of this tree. |
+| P6.2 | Toolchain in `trunk` dev env (`support/nix/devshell.nix`, `shell.nix`, `flake.nix`) and offline vendored crates. | **Done, nix part untried**: `cargo` and `rustc` added to the dev shell (nix is not installed on the machine used); `make ncrust_deps` runs `cargo vendor` into `lib/ncrust/vendor` and the build uses `--offline --locked` with that directory. |
+| P6.3 | Makefile target (per `makefile.instructions.md`) that builds `--release`, installs `bin/ncrust` and makes `bin/netconf-console` a link to it. `netconf-console-tcp` unchanged. | **Done**: target `ncrust` (part of `build`, `ncrust_deps` part of `deps`, `ncrust_clean` of the clean targets); `bin/netconf-console` is a link to `ncrust`; `bin/netconf-console --help` works through the links. There is no switch between implementations (D12). |
+| P6.4 | Install into `confd_dir/bin`, `ncs_dir/bin`, `ncs_dir/netsim/confd/bin` by following the existing `netconf-console.py` copy rules. | **Done in `bin/build_confd_release.func` and `bin/build_ncs_release.func`** (copy `ncrust`, link `netconf-console`; netsim gets it from the ConfD release it contains). Not yet run in a release build. |
+| P6.5 | SBOM (`SBOM.spdx.in`) and `licenses/` updated with all Rust crates. | **Done**: `licenses/gen-rust-components` writes `licenses/components/rust-*` (146 crates); `licenses/gen-spdx` and `gen-json` run; the version commands of all components match `Cargo.lock`. `gen-license` was not run to the end because the OTP entry of the tree used does not match (not related). |
+| P6.6 | Flip default to Rust after a full lux run on all supported platforms is green. | The link makes ncrust the default as soon as it is merged; the lux run (P5.4) must be green before that. |
+| P6.7 | Release notes / CHANGES entry (use the CHANGES Note Writer agent); document the new SSH options and that `netconf-console` is now a link to `ncrust`. | Entry present; reviewed. |
 | P6.8 | One-release deprecation of the Python script, then removal plan with ticket. | Jira ticket created for removal; date set. |
 
 Exit criteria: trunk release build ships the Rust binary as default; fallback documented.

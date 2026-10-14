@@ -3,6 +3,7 @@
 //! Every case in `golden/cases.json` is a command line. `tools/gen_golden.py` runs it with the
 //! Python script against a fake server and stores the requests it received; here the same
 //! command line goes through ncrust's argument parser and request builders.
+#![cfg(feature = "tailf-compat")]
 
 mod common;
 

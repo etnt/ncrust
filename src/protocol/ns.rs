@@ -15,7 +15,9 @@ pub const SUBSCRIBED_NOTIFICATIONS_NS: &str =
     "urn:ietf:params:xml:ns:yang:ietf-subscribed-notifications";
 pub const NOTIFICATION_NS: &str = "urn:ietf:params:xml:ns:netconf:notification:1.0";
 pub const NETCONF_MONITORING_NS: &str = "urn:ietf:params:xml:ns:yang:ietf-netconf-monitoring";
+#[cfg(feature = "tailf-compat")]
 pub const NCS_TRACE_ID_NS: &str = "http://tail-f.com/ns/netconf/ncs";
 
 pub const WITH_DEFAULTS_NS: &str = "urn:ietf:params:xml:ns:yang:ietf-netconf-with-defaults";
+#[cfg(feature = "tailf-compat")]
 pub const WITH_INACTIVE_NS: &str = "http://tail-f.com/ns/netconf/inactive/1.0";

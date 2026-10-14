@@ -1,4 +1,5 @@
 //! Ctrl-C, closed pipes and exit codes of the real binary.
+#![cfg(feature = "tailf-compat")]
 #![cfg(unix)]
 
 mod common;
@@ -23,7 +24,7 @@ fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
 }
 
 fn binary(port: u16) -> Command {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_netconf-console"));
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_ncrust"));
     cmd.args(["--proto", "tcp", "--host", "127.0.0.1", "--port"])
         .arg(port.to_string());
     cmd

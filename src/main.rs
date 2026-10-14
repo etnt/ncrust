@@ -4,7 +4,16 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args = std::env::args();
+    if let Some(name) = args
+        .next()
+        .as_deref()
+        .and_then(|path| std::path::Path::new(path).file_name())
+        .and_then(|name| name.to_str())
+    {
+        ncrust::cli::set_program_name(name);
+    }
+    let args: Vec<String> = args.collect();
     let mut stdout = io::stdout().lock();
     let mut stderr = io::stderr();
     let result = ncrust::run(&args, &mut stdout, &mut stderr).and_then(|()| Ok(stdout.flush()?));

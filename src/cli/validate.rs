@@ -25,13 +25,34 @@ struct Checked {
 }
 
 /// Set (to anything) to turn `netconf-console` into `netconf-console-tcp`.
+#[cfg(feature = "tailf-compat")]
 const FORCE_TCP_VARIABLE: &str = "TAILF_NETCONF_FORCE_TCP";
 
 /// The port of the NETCONF-over-TCP IPC listener that `FORCE_TCP_VARIABLE` selects.
+#[cfg(feature = "tailf-compat")]
 const FORCED_TCP_PORT: u16 = 2023;
 
 pub fn validate(cli: &Cli) -> Result<Invocation, Error> {
-    validate_with(cli, std::env::var_os(FORCE_TCP_VARIABLE).is_some())
+    #[cfg(feature = "tailf-compat")]
+    let force_tcp = std::env::var_os(FORCE_TCP_VARIABLE).is_some();
+    #[cfg(not(feature = "tailf-compat"))]
+    let force_tcp = false;
+    validate_with(cli, force_tcp)
+}
+
+/// The protocol and port to use: the options', unless the environment forces TCP IPC.
+#[cfg(feature = "tailf-compat")]
+fn protocol_and_port(cli: &Cli, force_tcp: bool) -> (&str, u16) {
+    if force_tcp {
+        ("tcp", FORCED_TCP_PORT)
+    } else {
+        (cli.proto.as_str(), cli.port)
+    }
+}
+
+#[cfg(not(feature = "tailf-compat"))]
+fn protocol_and_port(cli: &Cli, _force_tcp: bool) -> (&str, u16) {
+    (cli.proto.as_str(), cli.port)
 }
 
 /// The errors come in the order in which the Python script finds them: a missing command, call
@@ -166,7 +187,10 @@ fn read_options(cli: &Cli, checked: &Checked) -> ReadOptions {
     ReadOptions {
         filter: filter(cli),
         with_defaults: checked.with_defaults,
+        #[cfg(feature = "tailf-compat")]
         with_inactive: cli.with_inactive,
+        #[cfg(not(feature = "tailf-compat"))]
+        with_inactive: false,
     }
 }
 
@@ -189,7 +213,10 @@ fn get_data(cli: &Cli, checked: Checked, database: &str) -> Result<GetData, Erro
         origin_filter: checked.origin_filter,
         negated_origin_filter: checked.negated_origin_filter,
         with_defaults: checked.with_defaults,
+        #[cfg(feature = "tailf-compat")]
         with_inactive: cli.with_inactive,
+        #[cfg(not(feature = "tailf-compat"))]
+        with_inactive: false,
     })
 }
 
@@ -197,7 +224,10 @@ fn payload(cli: &Cli, source: &str) -> Result<Payload, Error> {
     Ok(Payload {
         db: db(&cli.db)?,
         input: input_source(source),
+        #[cfg(feature = "tailf-compat")]
         trace_id: cli.trace_id.clone(),
+        #[cfg(not(feature = "tailf-compat"))]
+        trace_id: None,
     })
 }
 
@@ -244,15 +274,17 @@ fn with_defaults(value: Option<&str>) -> Result<Option<WithDefaults>, Error> {
         Some("trim") => Some(WithDefaults::Trim),
         Some("report-all") => Some(WithDefaults::ReportAll),
         Some("report-all-tagged") => Some(WithDefaults::ReportAllTagged),
+        #[cfg(feature = "tailf-compat")]
         Some("true") => Some(WithDefaults::LegacyTrue),
+        #[cfg(feature = "tailf-compat")]
         Some("false") => Some(WithDefaults::LegacyFalse),
         Some(other) => return Err(bad_value("with-defaults", other)),
     })
 }
 
 fn connection(cli: &Cli, force_tcp: bool) -> Result<ConnectionSpec, Error> {
-    let proto = if force_tcp { "tcp" } else { cli.proto.as_str() };
-    let port = if force_tcp { FORCED_TCP_PORT } else { cli.port };
+    let (proto, port) = protocol_and_port(cli, force_tcp);
+    let (username, password) = credentials(cli);
     // Python fails with an exception here; call home needs ssh.
     if cli.listen && proto != "ssh" {
         return Err(Error::Usage(
@@ -261,13 +293,14 @@ fn connection(cli: &Cli, force_tcp: bool) -> Result<ConnectionSpec, Error> {
     }
     let kind = match proto {
         "ssh" => TransportKind::Ssh {
-            password: cli.password.clone(),
+            password,
             private_key: non_empty(&cli.priv_key_file).map(|file| PrivateKeySpec {
                 file: file.into(),
                 key_type: non_empty(&cli.priv_key_type).map(str::to_string),
             }),
             settings: ssh_settings(cli)?,
         },
+        #[cfg(feature = "tailf-compat")]
         "tcp" => TransportKind::Tcp {
             groups: cli.groups.clone().unwrap_or_default(),
             sup_gids: cli.sup_groups.clone().unwrap_or_default(),
@@ -277,13 +310,33 @@ fn connection(cli: &Cli, force_tcp: bool) -> Result<ConnectionSpec, Error> {
     Ok(ConnectionSpec {
         host: cli.host.clone(),
         port,
-        username: cli.user.clone(),
+        username,
         kind,
         call_home: cli.listen.then(|| CallHome {
             address: cli.listen_address.clone(),
             port: cli.listen_port,
         }),
     })
+}
+
+/// The user name and password: the options', or the defaults of the build.
+#[cfg(feature = "tailf-compat")]
+fn credentials(cli: &Cli) -> (String, String) {
+    (
+        cli.user.clone().unwrap_or_else(|| "admin".into()),
+        cli.password.clone().unwrap_or_else(|| "admin".into()),
+    )
+}
+
+/// Without an option the user is the one running the program, like `ssh` does.
+#[cfg(not(feature = "tailf-compat"))]
+fn credentials(cli: &Cli) -> (String, String) {
+    let user = cli.user.clone().unwrap_or_else(|| {
+        std::env::var("USER")
+            .or_else(|_| std::env::var("LOGNAME"))
+            .unwrap_or_default()
+    });
+    (user, cli.password.clone().unwrap_or_default())
 }
 
 fn ssh_settings(cli: &Cli) -> Result<SshSettings, Error> {
@@ -322,6 +375,7 @@ fn style(value: Option<&str>) -> Result<Option<OutputStyle>, Error> {
         Some("pretty") => Some(OutputStyle::Pretty),
         Some("all") => Some(OutputStyle::All),
         Some("last") => Some(OutputStyle::Last),
+        #[cfg(feature = "tailf-compat")]
         Some("noaaa") => Some(OutputStyle::NoAaa),
         // trunk's tests use `-s` followed by another option, so the style is e.g. `--db=candidate`.
         Some(_) => Some(OutputStyle::Plain),
@@ -363,6 +417,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "tailf-compat")]
     fn forcing_tcp_overrides_protocol_and_port() {
         let args = cli(&[
             "--hello", "--proto", "ssh", "--port", "1", "-u", "bob", "-g", "g",
@@ -382,6 +437,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "tailf-compat")]
     fn forcing_tcp_also_overrides_an_unknown_protocol() {
         let args = cli(&["--hello", "--proto", "udp"]);
         assert!(validate_with(&args, true).is_ok());
@@ -389,6 +445,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "tailf-compat")]
     fn forcing_tcp_does_not_work_with_call_home() {
         let args = cli(&["--hello", "--listen"]);
         assert!(matches!(validate_with(&args, true), Err(Error::Usage(_))));

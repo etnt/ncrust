@@ -12,15 +12,61 @@ use crate::error::Error;
 
 const STYLE: &str = "Style Options";
 const SSH: &str = "SSH Options";
+#[cfg(feature = "tailf-compat")]
 const TCP: &str = "TCP Options";
 const COMMANDS: &str = "NETCONF Command Options";
+
+/// The default of `--port`: the IANA port of NETCONF over SSH, or the NSO/ConfD one.
+#[cfg(not(feature = "tailf-compat"))]
+const DEFAULT_PORT: u16 = 830;
+#[cfg(feature = "tailf-compat")]
+const DEFAULT_PORT: u16 = 2022;
+
+#[cfg(not(feature = "tailf-compat"))]
+const STYLE_SHORT_HELP: &str = "Display output in: raw, plain, pretty, all, or last format";
+#[cfg(feature = "tailf-compat")]
+const STYLE_SHORT_HELP: &str = "Display output in: raw, plain, pretty, all, last, or noaaa format";
+
+#[cfg(not(feature = "tailf-compat"))]
+const STYLE_LONG_HELP: &str = "Display output in: raw, plain, pretty, all, or last format\n\
+    raw:    print bytes received on the wire, framing is removed\n\
+    plain:  skip the <hello> reply, print one reply as raw, skip the rest\n\
+    pretty: skip the <hello> reply, pretty-print one reply, skip the rest\n\
+    all:    skip the <hello> reply, pretty-print the rest of the replies\n\
+    last:   skip the <hello> reply, pretty-print the last of the replies\n\
+            (used primarily with --iter)";
+#[cfg(feature = "tailf-compat")]
+const STYLE_LONG_HELP: &str = "Display output in: raw, plain, pretty, all, last, or noaaa format\n\
+    raw:    print bytes received on the wire, framing is removed\n\
+    plain:  skip the <hello> reply, print one reply as raw, skip the rest\n\
+    pretty: skip the <hello> reply, pretty-print one reply, skip the rest\n\
+    all:    skip the <hello> reply, pretty-print the rest of the replies\n\
+    last:   skip the <hello> reply, pretty-print the last of the replies\n\
+            (used primarily with --iter)\n\
+    noaaa:  as pretty, but remove Tail-f AAA and IETF NACM from the output";
+
+#[cfg(not(feature = "tailf-compat"))]
+const PROTO_HELP: &str = "Which transport protocol to use; only ssh is supported";
+#[cfg(feature = "tailf-compat")]
+const PROTO_HELP: &str = "Which transport protocol to use, one of ssh or tcp";
+
+static PROGRAM: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Sets the name that usage messages show; the program may be started through a link with
+/// another name. Only the first call has an effect.
+pub fn set_program_name(name: &str) {
+    let _ = PROGRAM.set(name.to_string());
+}
+
+fn program_name() -> &'static str {
+    PROGRAM.get().map_or("ncrust", String::as_str)
+}
 
 // Arguments as typed, before any interpretation (see `validate` for that).
 // A plain comment on purpose: a doc comment would become the `--help` description.
 #[derive(Parser, Debug)]
 #[command(
-    name = "netconf-console",
-    override_usage = "netconf-console [-h | --help] [options] [cmdoptions | <filename> | -]",
+    name = "ncrust",
     about = "Where <filename> is a file containing a NETCONF XML command session.\nIf <filename> is not given, one of the Command Options must be given.\nFilename '-' means standard input.",
     help_template = "{usage-heading} {usage}\n\n{about}\n\n{all-args}",
     disable_version_flag = true,
@@ -35,15 +81,14 @@ pub struct Cli {
     pub debug: bool,
 
     /// username
-    #[arg(short = 'u', long = "user", default_value = "admin")]
-    pub user: String,
+    #[arg(short = 'u', long = "user")]
+    pub user: Option<String>,
 
     /// password
-    #[arg(short = 'p', long, default_value = "admin")]
-    pub password: String,
+    #[arg(short = 'p', long)]
+    pub password: Option<String>,
 
-    /// Which transport protocol to use, one of ssh or tcp
-    #[arg(long, default_value = "ssh")]
+    #[arg(long, default_value = "ssh", help = PROTO_HELP, hide = !cfg!(feature = "tailf-compat"))]
     pub proto: String,
 
     /// NETCONF server hostname
@@ -51,7 +96,7 @@ pub struct Cli {
     pub host: String,
 
     /// NETCONF server port
-    #[arg(long, default_value_t = 2022)]
+    #[arg(long, default_value_t = DEFAULT_PORT)]
     pub port: u16,
 
     /// Start NETCONF Call Home listener
@@ -73,19 +118,12 @@ pub struct Cli {
     #[arg(short = 'i', long)]
     pub interactive: bool,
 
-    /// Display output in: raw, plain, pretty, all, last, or noaaa format
     #[arg(
         short = 's',
         long = "outputStyle",
         help_heading = STYLE,
-        long_help = "Display output in: raw, plain, pretty, all, last, or noaaa format\n\
-            raw:    print bytes received on the wire, framing is removed\n\
-            plain:  skip the <hello> reply, print one reply as raw, skip the rest\n\
-            pretty: skip the <hello> reply, pretty-print one reply, skip the rest\n\
-            all:    skip the <hello> reply, pretty-print the rest of the replies\n\
-            last:   skip the <hello> reply, pretty-print the last of the replies\n\
-                    (used primarily with --iter)\n\
-            noaaa:  as pretty, but remove Tail-f AAA and IETF NACM from the output"
+        help = STYLE_SHORT_HELP,
+        long_help = STYLE_LONG_HELP
     )]
     pub output_style: Option<String>,
 
@@ -124,10 +162,12 @@ pub struct Cli {
     pub ssh_macs: Option<String>,
 
     /// Set group membership for user - comma separated string
+    #[cfg(feature = "tailf-compat")]
     #[arg(short = 'g', long, help_heading = TCP)]
     pub groups: Option<String>,
 
     /// Set supplementary UNIX group ids for user - comma separated string of integers
+    #[cfg(feature = "tailf-compat")]
     #[arg(short = 'G', long = "sup-groups", help_heading = TCP)]
     pub sup_groups: Option<String>,
 
@@ -203,6 +243,7 @@ pub struct Cli {
     pub copy_config: Option<String>,
 
     /// Must be a trace-id in uuid_v4 format. Use with --copy-config, --edit-config or --edit-data.
+    #[cfg(feature = "tailf-compat")]
     #[arg(long = "trace-id", help_heading = COMMANDS)]
     pub trace_id: Option<String>,
 
@@ -258,6 +299,7 @@ pub struct Cli {
     pub with_defaults: Option<String>,
 
     /// Send with-inactive parameter. Use with --get, --get-config or --get-data.
+    #[cfg(feature = "tailf-compat")]
     #[arg(long = "with-inactive", help_heading = COMMANDS)]
     pub with_inactive: bool,
 
@@ -305,12 +347,15 @@ pub enum Raw {
 /// Reads `args` the way Python's `optparse` does, and builds the `Cli` from them.
 pub fn parse_cli(args: &[String]) -> Result<Raw, Error> {
     use clap::{CommandFactory, FromArgMatches};
-    let command = Cli::command();
+    let program = program_name();
+    let command = Cli::command().name(program).override_usage(format!(
+        "{program} [-h | --help] [options] [cmdoptions | <filename> | -]"
+    ));
     let plain = match legacy::normalize(&command, args)? {
         legacy::Normalized::Help => vec!["--help".to_string()],
         legacy::Normalized::Args(plain) => plain,
     };
-    let argv = std::iter::once("netconf-console".to_string()).chain(plain);
+    let argv = std::iter::once(program.to_string()).chain(plain);
     let matches = match command.try_get_matches_from(argv) {
         Ok(matches) => matches,
         Err(e) if e.kind() == ErrorKind::DisplayHelp => {
@@ -324,6 +369,7 @@ pub fn parse_cli(args: &[String]) -> Result<Raw, Error> {
 }
 
 #[cfg(test)]
+#[cfg_attr(not(feature = "tailf-compat"), allow(irrefutable_let_patterns))]
 mod tests {
     use super::*;
     use crate::config::{
@@ -352,6 +398,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "tailf-compat")]
     fn defaults_match_the_python_script() {
         let inv = invocation(&["--get-config"]);
         assert_eq!(inv.connection.host, "localhost");
@@ -372,6 +419,17 @@ mod tests {
             (None, 1, None, false)
         );
         assert_eq!(get_config_db(&["--get-config"]), Db::default());
+    }
+
+    #[test]
+    #[cfg(not(feature = "tailf-compat"))]
+    fn defaults_follow_the_ssh_conventions() {
+        let inv = invocation(&["--get-config"]);
+        assert_eq!(inv.connection.host, "localhost");
+        assert_eq!(inv.connection.port, 830);
+        assert!(
+            matches!(&inv.connection.kind, TransportKind::Ssh { password, .. } if password.is_empty())
+        );
     }
 
     #[test]
@@ -487,6 +545,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "tailf-compat")]
     fn tcp_transport_options() {
         let inv = invocation(&[
             "--proto", "tcp", "--port", "2023", "-g", "a,b", "-G", "1,2", "-u", "bob", "--hello",
@@ -550,18 +609,25 @@ mod tests {
     }
 
     #[test]
-    fn with_defaults_and_inactive() {
-        let Action::Get(opts) = invocation(&[
-            "--get",
-            "--with-defaults",
-            "report-all-tagged",
-            "--with-inactive",
-        ])
-        .action
+    fn with_defaults() {
+        let Action::Get(opts) =
+            invocation(&["--get", "--with-defaults", "report-all-tagged"]).action
         else {
             panic!()
         };
         assert_eq!(opts.with_defaults, Some(WithDefaults::ReportAllTagged));
+        assert_eq!(
+            error(&["--get", "--with-defaults", "foo"]).to_string(),
+            "Bad --with-defaults value: foo"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "tailf-compat")]
+    fn tailf_with_defaults_and_inactive() {
+        let Action::Get(opts) = invocation(&["--get", "--with-inactive"]).action else {
+            panic!()
+        };
         assert!(opts.with_inactive);
         for (value, expected) in [
             ("true", WithDefaults::LegacyTrue),
@@ -572,10 +638,6 @@ mod tests {
             };
             assert_eq!(opts.with_defaults, Some(expected));
         }
-        assert_eq!(
-            error(&["--get", "--with-defaults", "foo"]).to_string(),
-            "Bad --with-defaults value: foo"
-        );
     }
 
     #[test]
@@ -611,6 +673,11 @@ mod tests {
             invocation(&["--hello", "-s", "raw"]).style,
             Some(OutputStyle::Raw)
         );
+        assert_eq!(
+            invocation(&["--hello", "--outputStyle", "pretty"]).style,
+            Some(OutputStyle::Pretty)
+        );
+        #[cfg(feature = "tailf-compat")]
         assert_eq!(
             invocation(&["--hello", "--outputStyle", "noaaa"]).style,
             Some(OutputStyle::NoAaa)
@@ -683,7 +750,6 @@ mod tests {
             "learned",
             "--with-defaults",
             "trim",
-            "--with-inactive",
         ])
         .action
         else {
@@ -705,7 +771,7 @@ mod tests {
         );
         assert_eq!(data.negated_origin_filter, [crate::config::Origin::Learned]);
         assert_eq!(data.with_defaults, Some(WithDefaults::Trim));
-        assert!(data.with_origin && data.with_inactive);
+        assert!(data.with_origin);
     }
 
     #[test]
@@ -739,9 +805,9 @@ mod tests {
     }
 
     #[test]
-    fn payload_commands_take_their_database_and_trace_id() {
+    fn payload_commands_take_their_database() {
         for flag in ["--edit-config", "--edit-data", "--copy-config"] {
-            let inv = invocation(&[flag, "f.xml", "--db", "candidate", "--trace-id", "t"]);
+            let inv = invocation(&[flag, "f.xml", "--db", "candidate"]);
             let payload = match inv.action {
                 Action::EditConfig(p) if flag == "--edit-config" => p,
                 Action::EditData(p) if flag == "--edit-data" => p,
@@ -750,8 +816,18 @@ mod tests {
             };
             assert_eq!(payload.db, Db("candidate".into()));
             assert_eq!(payload.input, InputSource::File("f.xml".into()));
-            assert_eq!(payload.trace_id.as_deref(), Some("t"));
+            assert_eq!(payload.trace_id, None);
         }
+    }
+
+    #[test]
+    #[cfg(feature = "tailf-compat")]
+    fn payload_commands_take_a_trace_id() {
+        let inv = invocation(&["--edit-config", "f.xml", "--trace-id", "t"]);
+        let Action::EditConfig(payload) = inv.action else {
+            panic!()
+        };
+        assert_eq!(payload.trace_id.as_deref(), Some("t"));
     }
 
     #[test]
@@ -845,9 +921,14 @@ mod tests {
         let Ok(Parsed::Help(text)) = parse(&args) else {
             panic!()
         };
-        assert!(text.starts_with("Usage: netconf-console"), "{text}");
-        for heading in ["Style Options", "TCP Options", "NETCONF Command Options"] {
+        assert!(text.starts_with("Usage: ncrust"), "{text}");
+        for heading in ["Style Options", "NETCONF Command Options"] {
             assert!(text.contains(heading), "{heading}");
         }
+        assert_eq!(
+            text.contains("TCP Options"),
+            cfg!(feature = "tailf-compat"),
+            "{text}"
+        );
     }
 }

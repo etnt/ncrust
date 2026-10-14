@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.91"
 description = "NETCONF console client (Rust port of netconf-console.py)"
+license = "MPL-2.0"
 publish = false
 
 [lib]
@@ -11,7 +12,7 @@ name = "ncrust"
 path = "src/lib.rs"
 
 [[bin]]
-name = "netconf-console"
+name = "ncrust"
 path = "src/main.rs"
 
 [features]
@@ -19,6 +20,10 @@ default = ["russh"]
 # SSH back ends (see plan/IMPLEMENTATION_PLAN.md, P3).
 russh = ["dep:russh", "dep:tokio"]
 ssh-subprocess = []
+# Compatibility with Tail-f NSO and ConfD: NETCONF over their IPC port (`--proto tcp`), `-s noaaa`,
+# the tail-f NETCONF extensions, and the defaults of `netconf-console.py` (port 2022, admin/admin).
+# Off by default; a general purpose NETCONF client does not need any of it.
+tailf-compat = []
 
 [dependencies]
 clap = { version = "4", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }

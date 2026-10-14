@@ -32,6 +32,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "tailf-compat")]
     fn trace_id_follows_the_target_with_a_quoted_namespace() {
         let s = streamed(&Db::default(), Some("6b8a4c52-a4c3-4a3f-8e0e-8a2f5c1b9d11"));
         assert!(s.prefix.contains(

@@ -1,4 +1,5 @@
 //! Runs the real binary against the in-process mock server.
+#![cfg(feature = "tailf-compat")]
 
 mod common;
 
@@ -25,7 +26,7 @@ fn tcp_args(port: u16) -> Vec<String> {
 #[test]
 fn get_config_in_plain_style_over_tcp() {
     let server = MockServer::start(script(vec![hello_steps(), round_trip(REPLY), goodbye()]));
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(tcp_args(server.port))
         .args(["--get-config", "-s", "plain"])
         .assert()
@@ -45,7 +46,7 @@ fn get_config_in_plain_style_over_tcp() {
 #[test]
 fn rpc_is_read_from_standard_input() {
     let server = MockServer::start(script(vec![hello_steps(), round_trip(REPLY), goodbye()]));
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(tcp_args(server.port))
         .args(["--rpc", "-", "-s", "plain"])
         .write_stdin("<get-schema xmlns=\"urn:x\"><identifier>m</identifier></get-schema>")
@@ -66,7 +67,7 @@ fn rpc_is_read_from_standard_input() {
 #[test]
 fn get_with_xpath_words_and_filters_reaches_the_server() {
     let server = MockServer::start(script(vec![hello_steps(), round_trip(REPLY), goodbye()]));
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(tcp_args(server.port))
         .args([
             "--get",
@@ -88,7 +89,7 @@ fn get_with_xpath_words_and_filters_reaches_the_server() {
 
 #[test]
 fn missing_command_is_a_usage_error_with_exit_code_2() {
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .assert()
         .code(2)
         .stdout("")
@@ -101,7 +102,7 @@ fn connection_refused_is_reported_on_stdout_with_exit_code_1() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         listener.local_addr().unwrap().port()
     };
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(tcp_args(port))
         .args(["--hello", "-s", "plain"])
         .assert()
@@ -113,7 +114,7 @@ fn connection_refused_is_reported_on_stdout_with_exit_code_1() {
 #[test]
 fn debug_prints_the_process_id_first() {
     let server = MockServer::start(script(vec![hello_steps(), round_trip(REPLY), goodbye()]));
-    let output = cargo_bin_cmd!("netconf-console")
+    let output = cargo_bin_cmd!("ncrust")
         .args(tcp_args(server.port))
         .args(["--debug", "--get-config", "-s", "plain"])
         .assert()
@@ -136,7 +137,7 @@ fn a_protocol_error_goes_to_stderr_with_exit_code_1() {
         hello_steps(),
         vec![Step::Recv, Step::Send(b"\n#10\nabc".to_vec()), Step::Close],
     ]));
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(tcp_args(server.port))
         .args(["--get-config", "-s", "plain"])
         .assert()
@@ -148,7 +149,7 @@ fn a_protocol_error_goes_to_stderr_with_exit_code_1() {
 
 #[test]
 fn a_bad_option_value_goes_to_stdout_with_exit_code_1() {
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(["--hello", "--with-defaults", "bogus"])
         .assert()
         .code(1)
@@ -158,7 +159,7 @@ fn a_bad_option_value_goes_to_stdout_with_exit_code_1() {
 
 #[test]
 fn an_option_error_goes_to_stderr_with_exit_code_2() {
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(["--hello", "--nope"])
         .assert()
         .code(2)
@@ -166,13 +167,35 @@ fn an_option_error_goes_to_stderr_with_exit_code_2() {
         .stderr("error: no such option: --nope\n");
 }
 
+#[cfg(unix)]
+#[test]
+fn usage_shows_the_name_the_program_was_started_as() {
+    let dir = tempfile::tempdir().unwrap();
+    let link = dir.path().join("netconf-console");
+    std::os::unix::fs::symlink(env!("CARGO_BIN_EXE_ncrust"), &link).unwrap();
+    let output = std::process::Command::new(&link)
+        .args(["--hello", "--nope"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let help = std::process::Command::new(&link)
+        .arg("--help")
+        .output()
+        .unwrap();
+    let help = String::from_utf8(help.stdout).unwrap();
+    assert!(
+        help.starts_with("Usage: netconf-console [-h | --help]"),
+        "{help}"
+    );
+}
+
 #[test]
 fn help_goes_to_stdout_with_exit_code_0() {
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .arg("--help")
         .assert()
         .success()
-        .stdout(contains("Usage: netconf-console"));
+        .stdout(contains("Usage: ncrust"));
 }
 
 #[test]
@@ -181,7 +204,7 @@ fn ssh_is_the_default_protocol() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         listener.local_addr().unwrap().port()
     };
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(["--host", "127.0.0.1", "--port", &port.to_string()])
         .args(["--hello", "-s", "plain"])
         .assert()
@@ -196,7 +219,7 @@ fn formatted(xml: &str) -> String {
 #[test]
 fn without_a_style_the_reply_is_pretty_printed() {
     let server = MockServer::start(script(vec![hello_steps(), round_trip(REPLY), goodbye()]));
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(tcp_args(server.port))
         .arg("--get-config")
         .assert()
@@ -212,7 +235,7 @@ fn interactive_mode_sends_operations_from_stdin_numbered_from_2() {
         round_trip(REPLY),
         vec![Step::Close],
     ]));
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(tcp_args(server.port))
         .arg("-i")
         .write_stdin("<get/>\n\n")
@@ -245,7 +268,7 @@ fn a_session_file_is_read_from_standard_input_with_a_dash() {
         Step::SendMsg(REPLY.to_string()),
         Step::Close,
     ]);
-    cargo_bin_cmd!("netconf-console")
+    cargo_bin_cmd!("ncrust")
         .args(tcp_args(server.port))
         .arg("-")
         .write_stdin(session)
@@ -268,7 +291,7 @@ fn the_external_xmllint_gives_the_same_output_as_the_built_in_formatter() {
     let reply = "<rpc-reply xmlns=\"urn:x\"><data><a>é</a><b>\n  <c/></b></data></rpc-reply>";
     for external in [false, true] {
         let server = MockServer::start(script(vec![hello_steps(), round_trip(reply), goodbye()]));
-        let mut cmd = cargo_bin_cmd!("netconf-console");
+        let mut cmd = cargo_bin_cmd!("ncrust");
         cmd.args(tcp_args(server.port)).arg("--get-config");
         if external {
             cmd.env("NETCONF_CONSOLE_XMLLINT", "1");

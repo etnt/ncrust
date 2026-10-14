@@ -21,6 +21,8 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      - run: cargo clippy --all-targets --features tailf-compat -- -D warnings
+      - run: cargo test --features tailf-compat
 
   deny:
     runs-on: ubuntu-latest

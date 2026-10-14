@@ -1,7 +1,7 @@
 #!/bin/sh
 # Smoke test against a real ConfD/NSO NETCONF TCP port. Not part of CI.
 #
-#   NC_HOST (127.0.0.1)  NC_PORT (2023)  NC_BIN (target/debug/netconf-console)
+#   NC_HOST (127.0.0.1)  NC_PORT (2023)  NC_BIN (target/debug/ncrust)
 #   NC_PROTO (tcp)  NC_PROTO=ssh NC_PORT=2022 runs the same checks over SSH
 #   NC_PY_REF=/path/to/trunk/bin/netconf-console.py  also compares plain output with the Python script
 #
@@ -12,7 +12,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 HOST=${NC_HOST:-127.0.0.1}
 PORT=${NC_PORT:-2023}
 PROTO=${NC_PROTO:-tcp}
-BIN=${NC_BIN:-$here/../../target/debug/netconf-console}
+BIN=${NC_BIN:-$here/../../target/debug/ncrust}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 

@@ -15,7 +15,9 @@ pub mod subscription;
 
 use crate::config::WithDefaults;
 use crate::protocol::filter::ResolvedFilter;
-use crate::protocol::ns::{NC_NS, NCS_TRACE_ID_NS, WITH_DEFAULTS_NS, WITH_INACTIVE_NS};
+use crate::protocol::ns::{NC_NS, WITH_DEFAULTS_NS};
+#[cfg(feature = "tailf-compat")]
+use crate::protocol::ns::{NCS_TRACE_ID_NS, WITH_INACTIVE_NS};
 use crate::protocol::xmlw::XmlWriter;
 
 /// Parameters shared by `get` and `get-config`.
@@ -46,11 +48,13 @@ fn with_defaults_mode(with_defaults: Option<WithDefaults>) -> Option<&'static st
         WithDefaults::Trim => Some("trim"),
         WithDefaults::ReportAll => Some("report-all"),
         WithDefaults::ReportAllTagged => Some("report-all-tagged"),
+        #[cfg(feature = "tailf-compat")]
         WithDefaults::LegacyTrue | WithDefaults::LegacyFalse => None,
     }
 }
 
 /// The deprecated tail-f `with-defaults="true|false"` goes on `<rpc>`.
+#[cfg(feature = "tailf-compat")]
 fn legacy_with_defaults_attr(
     with_defaults: Option<WithDefaults>,
 ) -> Vec<(&'static str, &'static str)> {
@@ -61,17 +65,34 @@ fn legacy_with_defaults_attr(
     }
 }
 
+#[cfg(not(feature = "tailf-compat"))]
+fn legacy_with_defaults_attr(
+    _with_defaults: Option<WithDefaults>,
+) -> Vec<(&'static str, &'static str)> {
+    Vec::new()
+}
+
+/// The tail-f `with-inactive` extension.
+#[cfg(feature = "tailf-compat")]
 fn write_with_inactive(w: &mut XmlWriter, with_inactive: bool) {
     if with_inactive {
         w.empty("with-inactive", &[("xmlns", WITH_INACTIVE_NS)]);
     }
 }
 
+#[cfg(not(feature = "tailf-compat"))]
+fn write_with_inactive(_w: &mut XmlWriter, _with_inactive: bool) {}
+
+/// The NSO `trace-id` extension.
+#[cfg(feature = "tailf-compat")]
 fn write_trace_id(w: &mut XmlWriter, trace_id: Option<&str>) {
     if let Some(id) = trace_id {
         w.element("trace-id", &[("xmlns", NCS_TRACE_ID_NS)], id);
     }
 }
+
+#[cfg(not(feature = "tailf-compat"))]
+fn write_trace_id(_w: &mut XmlWriter, _trace_id: Option<&str>) {}
 
 /// An operation whose payload is streamed from a file between `prefix` and `suffix`;
 /// both are parts of the content of `<rpc>`.

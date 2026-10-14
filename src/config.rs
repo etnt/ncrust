@@ -38,6 +38,7 @@ pub enum TransportKind {
         settings: SshSettings,
     },
     /// NSO/ConfD IPC over TCP; `groups` and `sup_gids` go into the connection preamble.
+    #[cfg(feature = "tailf-compat")]
     Tcp { groups: String, sup_gids: String },
 }
 
@@ -55,6 +56,7 @@ impl std::fmt::Debug for TransportKind {
                 .field("private_key", private_key)
                 .field("settings", settings)
                 .finish(),
+            #[cfg(feature = "tailf-compat")]
             TransportKind::Tcp { groups, sup_gids } => f
                 .debug_struct("Tcp")
                 .field("groups", groups)
@@ -120,6 +122,7 @@ pub enum OutputStyle {
     Pretty,
     All,
     Last,
+    #[cfg(feature = "tailf-compat")]
     NoAaa,
 }
 
@@ -176,8 +179,10 @@ pub enum WithDefaults {
     ReportAll,
     ReportAllTagged,
     /// Deprecated tail-f `with-defaults="true"` attribute on `<rpc>`.
+    #[cfg(feature = "tailf-compat")]
     LegacyTrue,
     /// Deprecated tail-f `with-defaults="false"` attribute on `<rpc>`.
+    #[cfg(feature = "tailf-compat")]
     LegacyFalse,
 }
 

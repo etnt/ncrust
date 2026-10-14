@@ -41,3 +41,16 @@ One entry per decision: what, when, why. Answers to the open questions of PLAN.m
 ## D10 – SSH defaults (2026-10-13)
 - **Decision:** The default algorithm lists are the library's, minus pseudo algorithms, and exclude the post-quantum exchanges until `PQ_BY_DEFAULT` is flipped (P7.2). Private keys with a passphrase are not supported (Python passes none either). Password and key login send the credentials the user gave; there is no agent or `~/.ssh` lookup.
 - **Why:** Same behaviour as the script; PQ defaults need the support matrix of P7.1. See `pqc-extension-points.md`.
+
+## D11 – Integration into trunk (2026-10-14)
+- **Decision:** `trunk` fetches ncrust like its other dependencies: `deps/ncrust_version` (`<tag> <git url>`) is read by `deps/Makefile get_external_repo` into `lib/ncrust` (not committed). `make deps` also runs `cargo vendor` there; `make ncrust` builds with `--release --locked --offline` against the vendored crates into `$(TAILF_BUILD_BASE)/lib/ncrust/target` and installs `$(TAILF_BUILD_BASE)/bin/ncrust`. A new version is a new tag and an edit of the version file.
+- **Why:** Same mechanism as esqlite, waraft and yaws; no submodule to keep in step; reproducible by tag.
+
+## D12 – Executable name and the `netconf-console` link (2026-10-14)
+- **Decision:** The executable is called `ncrust`. In `trunk`, `bin/netconf-console` is a link to `ncrust` (and the releases contain `ncrust` with a link `netconf-console` next to it). `netconf-console-tcp` stays a script that calls `netconf-console`. Usage messages show the name the program was started as. There is no switch between the Rust and the Python implementation; `bin/netconf-console.py` stays in the releases for one more release and can be run directly.
+- **Why:** One name for the tool, the old name for the existing scripts and lux tests, no wrapper to maintain.
+
+## D13 – No NSO/ConfD knowledge in ncrust (2026-10-14)
+- **Decision:** Everything that is specific to NSO or ConfD (build and install rules, release functions, SBOM entries, links, the dev shell, the wrapper scripts) lives in `trunk`; ncrust stays a general purpose NETCONF client. Features that exist only for compatibility with `netconf-console.py` and are NSO/ConfD specific are behind the cargo feature `tailf-compat` (off by default; trunk builds with it).
+- **The feature covers:** the IPC-over-TCP transport (`--proto tcp`, `-g`, `-G`), `TAILF_NETCONF_FORCE_TCP` (port 2023), `-s noaaa`, the tail-f namespaces for `--trace-id`, `--with-inactive` and `with-defaults="true|false"`, and the defaults port 2022 with `admin`/`admin`. Without it the defaults are port 830, the current user and an empty password, `--proto` is hidden and accepts only `ssh`, and `-s noaaa` behaves like any unknown style (plain).
+- **Tests:** the lib tests run in both configurations; integration tests that need the TCP mock server or the Python-derived goldens are compiled only with the feature. CI runs fmt, clippy and tests for both.
