@@ -32,6 +32,7 @@ its tests and CI. Integration into `trunk` (packaging, lux switch-over) is the l
 | P5 | Differential and system validation | Rust matches Python on a corpus; lux suites pass |
 | P6 | Packaging and switch-over in trunk | Built and shipped by trunk, wrapper prefers Rust |
 | P7 | PQC enablement | Hybrid KEX available and defaulted, signature path prepared |
+| P8–P16 | Full PQ SSH algorithm set, TLS counterparts | See [PQC_SSH_PLAN.md](PQC_SSH_PLAN.md) |
 
 ---
 
