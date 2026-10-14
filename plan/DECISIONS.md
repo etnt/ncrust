@@ -10,6 +10,7 @@ One entry per decision: what, when, why. Answers to the open questions of PLAN.m
 ## D2 – PQ roadmap of the server (2026-10-13)
 - **Decision:** Server-side PQ support is unknown. Algorithms stay configurable by name; PQ defaults are enabled only after P7.1 produces the support matrix.
 - **Why:** Avoids guessing; the design does not depend on the answer.
+- **Outcome (2026-10-14):** [pqc-matrix.md](pqc-matrix.md): the server's default `kex` list starts with `mlkem768x25519-sha256`, so ncrust has it first as well (D10).
 
 ## D3 – Output compatibility (2026-10-13)
 - **Decision:** Pretty-printing must be byte-identical to `xmllint --format`.
@@ -39,8 +40,8 @@ One entry per decision: what, when, why. Answers to the open questions of PLAN.m
 - **Revisit:** if `russh` cannot meet a PQ or FIPS requirement (P7).
 
 ## D10 – SSH defaults (2026-10-13)
-- **Decision:** The default algorithm lists are the library's, minus pseudo algorithms, and exclude the post-quantum exchanges until `PQ_BY_DEFAULT` is flipped (P7.2). Private keys with a passphrase are not supported (Python passes none either). Password and key login send the credentials the user gave; there is no agent or `~/.ssh` lookup.
-- **Why:** Same behaviour as the script; PQ defaults need the support matrix of P7.1. See `pqc-extension-points.md`.
+- **Decision:** The default algorithm lists are the library's, minus pseudo algorithms; this puts the hybrid `mlkem768x25519-sha256` first (changed from classical-only on 2026-10-14, P7.2). Private keys with a passphrase are not supported (Python passes none either). Password and key login send the credentials the user gave; there is no agent or `~/.ssh` lookup.
+- **Why:** Same behaviour as the script, apart from the exchange; ConfD and NSO have the same default, and a server without it falls back to the next common exchange. See `pqc-extension-points.md`.
 
 ## D11 – Integration into trunk (2026-10-14)
 - **Decision:** `trunk` fetches ncrust like its other dependencies: `deps/ncrust_version` (`<tag> <git url>`) is read by `deps/Makefile get_external_repo` into `lib/ncrust` (not committed). `make deps` also runs `cargo vendor` there; `make ncrust` builds with `--release --locked --offline` against the vendored crates into `$(TAILF_BUILD_BASE)/lib/ncrust/target` and installs `$(TAILF_BUILD_BASE)/bin/ncrust`. A new version is a new tag and an edit of the version file.

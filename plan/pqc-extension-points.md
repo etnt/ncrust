@@ -8,8 +8,8 @@ the places below.
 
 | Goal | Where | What to do |
 |---|---|---|
-| Make a PQ key exchange a default | `algorithms.rs` | Flip `PQ_BY_DEFAULT` to `true` (after P7.1 shows the server supports it). `russh_backend::supported()` then puts the `PQ_KEX` names first in the default list. The unit test `defaults_are_classical_until_the_post_quantum_decision` in `ssh/mod.rs` documents the current state and must be changed with the flip. |
-| Support another PQ key exchange name | `algorithms.rs` (`PQ_KEX`) and the back end | Add the name to `PQ_KEX`; the back end's `supported()` must list it (it takes names from the library, so a library upgrade is usually enough). |
+| Change the default key exchange order | `russh_backend.rs` (`supported()`) | The defaults are the library's list (`Preferred::DEFAULT.kex`), in which `mlkem768x25519-sha256` is first (P7.2, [pqc-matrix.md](pqc-matrix.md)). To drop or reorder one, filter or sort there. |
+| Support another PQ key exchange name | the back end | `supported()` takes the names from the library, so a library upgrade is enough; `--ssh-kex` accepts the new name from then on and the default list follows the library's order. |
 | Add a host key algorithm (PQ signatures) | `russh_backend.rs` (`host_key_algorithms()`) | The list comes from the library's `Preferred::DEFAULT.key`. A new algorithm appears there when the library supports it; `--ssh-host-key-algs` accepts it by name from then on. |
 | Add a user key type (PQ signatures) | `keys.rs` (`type_hint_warning`) and `russh_backend.rs` (`open`) | `--privKeyType` is only a hint; add the new type name to `type_hint_warning`. Loading is done by the library (`load_secret_key`), so the key file must be a format it can read. |
 | Select another crypto provider (FIPS, CiscoSSL) | `Cargo.toml` features, `russh_backend.rs` | The `russh` dependency selects `aws-lc-rs`. A provider variant is a different feature of the same dependency; the `SshBackend` trait does not change (P7.5). |
@@ -29,7 +29,9 @@ the places below.
 
 ## What is tested
 
-- `tests/ssh_e2e.rs` negotiates a PQ exchange with an in-process server restricted to it, checks
-  that the defaults stay classical (a server that offers only the PQ exchange fails the
-  handshake), and that an unsupported name fails before connecting.
-- P7.2 and P7.3 extend those tests with the real server's behaviour.
+- `tests/ssh_e2e.rs` negotiates with in-process servers: the PQ exchange is the default when the
+  server has it, the classical one is used when it does not, and requiring the PQ exchange
+  against a classical-only server fails in the handshake. An unsupported name fails before
+  connecting.
+- `tests/system/openssh_kex.sh` negotiates with the installed OpenSSH; results with it and with
+  ConfD are in [reports/pqc-interop.md](reports/pqc-interop.md).

@@ -69,8 +69,11 @@ Options that only ncrust has:
 | `--ssh-kex`, `--ssh-host-key-algs`, `--ssh-ciphers`, `--ssh-macs` | algorithm lists in OpenSSH syntax: `a,b` replaces the default, `+a`, `-a`, `^a` append, remove, put first |
 
 By default any host key is accepted, as in the Python script. With `--debug` the negotiated SSH
-algorithms are printed on stderr. Post-quantum key exchange (`mlkem768x25519-sha256`) is available
-on request with `--ssh-kex`; see [plan/pqc-extension-points.md](plan/pqc-extension-points.md).
+algorithms are printed on stderr. The post-quantum hybrid key exchange `mlkem768x25519-sha256`
+is tried first, so a server that has it (ConfD and NSO do, as does OpenSSH 10) is reached with it
+and any other server with a classical exchange; `--ssh-kex` selects the algorithms explicitly.
+See [plan/pqc-matrix.md](plan/pqc-matrix.md) and
+[plan/pqc-extension-points.md](plan/pqc-extension-points.md).
 
 Environment (the first only with `tailf-compat`):
 

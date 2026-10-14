@@ -13,7 +13,7 @@ use russh::keys::{self, Algorithm, HashAlg, PrivateKeyWithHashAlg, PublicKeyOrCe
 use russh::{Channel, ChannelMsg, Disconnect, Names, Preferred, cipher, kex, mac};
 use tokio::runtime::{Builder, Runtime};
 
-use super::algorithms::{AlgorithmSet, PQ_BY_DEFAULT, PQ_KEX, ResolvedAlgorithms, Supported};
+use super::algorithms::{AlgorithmSet, ResolvedAlgorithms, Supported};
 use super::auth::AuthMethod;
 use super::backend::{BackendCaps, Negotiated, SshBackend, SshConnection, SshOptions};
 use super::hostkey::check_fingerprint;
@@ -52,7 +52,6 @@ fn supported() -> Supported {
     let kex_defaults = names(Preferred::DEFAULT.kex.iter())
         .into_iter()
         .filter(usable)
-        .filter(|n| PQ_BY_DEFAULT || !PQ_KEX.contains(&n.as_str()))
         .collect();
     let host_key: Vec<String> = host_key_algorithms().into_iter().map(|(n, _)| n).collect();
     let ciphers: Vec<String> = names(cipher::ALL_CIPHERS.iter().copied())

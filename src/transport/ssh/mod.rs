@@ -95,11 +95,11 @@ mod tests {
     }
 
     #[test]
-    fn defaults_are_classical_until_the_post_quantum_decision() {
+    fn the_hybrid_post_quantum_exchange_is_first_among_the_defaults() {
         let prepared = Prepared::new(&spec(AlgorithmSpecs::default())).unwrap();
         let kex = &prepared.options.algorithms.kex;
+        assert_eq!(kex[0], "mlkem768x25519-sha256", "{kex:?}");
         assert!(kex.iter().any(|n| n == "curve25519-sha256"), "{kex:?}");
-        assert!(!kex.iter().any(|n| n.starts_with("mlkem")), "{kex:?}");
         assert!(
             !kex.iter().any(|n| n == "none" || n.starts_with("ext-info")),
             "{kex:?}"

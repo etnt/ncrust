@@ -292,10 +292,24 @@ fn debug_line(kex: &'static [kex::Name], args: &[&str]) -> assert_cmd::assert::A
 }
 
 #[test]
-fn the_default_exchange_is_classical() {
+fn a_classical_only_server_gets_the_classical_exchange() {
     debug_line(&[kex::CURVE25519], &[])
         .success()
         .stderr(contains("kex=curve25519-sha256"));
+}
+
+#[test]
+fn the_default_exchange_is_post_quantum_when_the_server_has_it() {
+    debug_line(&[kex::MLKEM768X25519_SHA256, kex::CURVE25519], &[])
+        .success()
+        .stderr(contains("kex=mlkem768x25519-sha256"));
+}
+
+#[test]
+fn a_server_with_only_the_post_quantum_exchange_works_by_default() {
+    debug_line(&[kex::MLKEM768X25519_SHA256], &[])
+        .success()
+        .stderr(contains("kex=mlkem768x25519-sha256"));
 }
 
 #[test]
@@ -320,9 +334,19 @@ fn the_post_quantum_exchange_can_be_put_first() {
 
 #[test]
 fn a_server_that_offers_nothing_the_client_allows_fails_the_handshake() {
-    debug_line(&[kex::MLKEM768X25519_SHA256], &[])
+    debug_line(
+        &[kex::MLKEM768X25519_SHA256],
+        &["--ssh-kex", "curve25519-sha256"],
+    )
+    .code(1)
+    .stdout(contains("SSH error"));
+}
+
+#[test]
+fn requiring_the_post_quantum_exchange_fails_against_a_classical_server() {
+    debug_line(&[kex::CURVE25519], &["--ssh-kex", "mlkem768x25519-sha256"])
         .code(1)
-        .stdout(contains("SSH error"));
+        .stdout(contains("No common Kex algorithm"));
 }
 
 #[test]

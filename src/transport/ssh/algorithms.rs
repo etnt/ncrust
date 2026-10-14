@@ -5,17 +5,6 @@
 use crate::config::AlgorithmSpecs;
 use crate::error::Error;
 
-/// Post-quantum (hybrid) key exchange methods. They are usable on request (`--ssh-kex`) but
-/// are not in the defaults until the server side is known to support them (plan P7).
-pub const PQ_KEX: &[&str] = &[
-    "mlkem768x25519-sha256",
-    "sntrup761x25519-sha512",
-    "sntrup761x25519-sha512@openssh.com",
-];
-
-/// Whether the default key exchange list starts with the post-quantum methods.
-pub const PQ_BY_DEFAULT: bool = false;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Kex,
